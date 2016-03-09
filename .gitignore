@@ -1,5 +1,6 @@
 # repo specific settings
-
+graph_builder/graph_builder
+wiki/
 
 # gitignore: python + c @ GitHub
 
