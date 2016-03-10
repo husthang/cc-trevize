@@ -27,9 +27,37 @@ import argparse
 
 
 def parse_input():
-    pass
+    """Parse arguments."""
 
-def process():
+    # argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument('algorithms',
+                        help='list of algorithms (Python format in quote)' +
+                             'for running Gaia')
+    parser.add_argument('cases',
+                        help='directory of cases for running Gaia')
+    args = parser.parse_args()
+    algorithms = args.algorithms
+    cases = args.cases
+
+    # parse algorithms
+    import re
+    t = re.compile('[\[\],\ ]')  # process '[', ']', <space>
+
+    algorithms_list = t.split(algorithms)
+    for i in range(len(algorithms_list)-1, -1, -1):
+        if algorithms_list[i] is '':
+            del algorithms_list[i]
+
+    return algorithms_list, cases
+
+def process(algorithms_list, cases):
+    """For each case, test every algorithm."""
+
+    import os
+
+
+
     pass
 
 def output():
@@ -37,6 +65,6 @@ def output():
 
 
 if __name__ == '__main__':
-    parse_input()
-    process()
+    algorithms_list, cases = parse_input()
+    process(algorithms_list, cases)
     output()
