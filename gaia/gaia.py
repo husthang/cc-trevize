@@ -54,17 +54,46 @@ def parse_input():
 def process(algorithms_list, cases):
     """For each case, test every algorithm."""
 
+    # get cases dir list
     import os
+    list_cases = os.listdir(cases)
+    checked_cases = []
+    for directory in list_cases:
+        path = os.path.join(cases, directory)
+        if os.path.isdir(path):
+            case_file_list = os.listdir(path)
+            if 'topo.csv' in case_file_list and 'demand.csv' in case_file_list:
+                checked_cases.append(path)
 
+    print(checked_cases)  # for debugging
 
+    import time
+    import re
 
-    pass
+    timestamp = time.strftime("%Y%m%d%H%M%S", time.gmtime(time.time()))
+    output_dir = '../test/gaia-' + timestamp
+    os.mkdir(output_dir)
+    from subprocess import call
+    import time
+    for algorithm in algorithms_list:
+        for case in checked_cases:
 
-def output():
-    pass
+            case_name = re.search('case.*', case).group()
+            print(case_name)
+            algorithm = '../py-trevize/py-trevize.py'
+            topo = os.path.join(case, 'topo.csv')
+            demand = os.path.join(case, 'demand.csv')
+            output = output_dir + '/' + case_name + '_o.csv'
+
+            t0 = time.time()
+            call(["python", algorithm, topo, demand, output])
+            t1 = time.time()
+            runtime = t1 - t0
+            print(runtime)
+            # get return code and time
+
 
 
 if __name__ == '__main__':
     algorithms_list, cases = parse_input()
     process(algorithms_list, cases)
-    output()
