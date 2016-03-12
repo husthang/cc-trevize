@@ -1,6 +1,9 @@
 # -*- coding: utf-8 -*-
-# py-trevize
-# Related to Trevize project of Organization Laboratory
+
+"""Voyager: find all routes in the universe.
+
+"""
+
 # Author: Mo Frank Hu (mofrankhu@gmail.com)
 # Enviroment: Python 3, NetworkX
 
