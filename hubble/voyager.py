@@ -1,11 +1,21 @@
 # -*- coding: utf-8 -*-
 
-"""Voyager: find all routes in the universe.
+"""Voyager: find all possible routes in the universe(graph).
 
+- input 
+    - topo: `topo.csv`, contains graph
+    - demand: `demand.csv`, contains `s, t, v1(V')`
+    - o: output filename
+    - '-s', '--shortest': only output shortest route
+    - '-v', '--verbose': verbose printout
+    - '-p', '--plot': topo figure printout `topo.png`
+- output
+    - all valid paths in csv format (weight, route)
+    - shortest route (when `-s` is True)
 """
 
 # Author: Mo Frank Hu (mofrankhu@gmail.com)
-# Enviroment: Python 3, NetworkX
+# Dependencies: Python 3, NetworkX, matplotlib(for plot)
 
 import networkx as nx
 from sys import argv
@@ -51,86 +61,130 @@ def read_csv(g, stv1):
     return G, s, t, v1
 
 
-def check_input(G, s, t, v1):
+def check_input_and_plot(G, s, t, v1, plot_name, verbose):
     """Print input data."""
     from pprint import pprint
     import matplotlib.pyplot as plt
 
-    print('nodes:', G.nodes())
-    print('edges:')
-    pprint(G.edges(data=True))
+    if verbose:
+        print('nodes:', G.nodes())
+        print('edges:')
+        pprint(G.edges(data=True))
 
     # draw graph and edge labels in same layout
-    layout=nx.circular_layout(G)
+    layout = nx.circular_layout(G)
     nx.draw_networkx(G,pos=layout)
     nx.draw_networkx_edge_labels(G, pos=layout, label_pos=0.5, font_size=8)
 
-    print('s: {}, t: {}'.format(s, t))
-    print('v1', v1)
+    if verbose:
+        print('s: {}, t: {}'.format(s, t))
+        print('v1', v1)
 
-    plt.show()
+    plt.savefig(plot_name)
 
 
-def trevize(G, s, t, v1, verbose=False):
+def voyager(G, s, t, v1, verbose):
     """Find best path.
 
     input: graph, s, t, v1
-    output: best path
+    output: valid path list `valid_paths`
     """
     all_paths = list(nx.shortest_simple_paths(G, s, t, weight='weight'))
     set_v1 = set(v1)
+    valid_paths = []
     for path in all_paths:
         if verbose:
             print(path)
         if set_v1 <= set(path[1:-1]):
-            # use set to find if all elements in v' are in path
-            if verbose:
-                print('find path')
-            return path, G
-    if verbose:
-        print('no path')
-    return "NA"
+            # use set to find if all elements in V' are in path
+            valid_paths.append(path)
+    # return
+    if valid_paths:
+        return valid_paths, G
+    else:
+        if verbose:
+            print('no path')
+        return "NA"
 
 
-def write_csv(f, answer, verbose=False):
+def write_csv(f, answer, format, verbose):
     """Write the answer to csv file.
 
     proposed format: 
         - 'NA' for no answer; 
         - 'e[1]|e[2]|..|e[n]' for shortest path, e[i] is label of edge
+    parameters:
+        - f: file output
+        - answer: NA or path list `paths`
+        - format: 
+            - 'all' to output all paths; 
+            - 'shortest' to output shortest route (proposed `result.csv`)
+        - verbose: set to True to printout more information
     """
     if answer is "NA":
-        print(answer)
+        if verbose:
+            print(answer)
         f.write(answer)
         return 0
     # else
-    path, G = answer
-    answer = ""
-    for i in range(len(path) - 1):
-        # as used i+1
+    paths, G = answer
+    for path in paths:
+        route = ""
+        weight = 0
+        for i in range(len(path) - 1):
+            # as used i+1
+            route += str(G.edge[path[i]][path[i+1]]['label']) + '|'
+            weight += G[path[i]][path[i+1]]['weight']
         if verbose:
-            print(G[path[i]][path[i+1]]['label'])
-        answer += str(G.edge[path[i]][path[i+1]]['label']) + '|'
-    print(answer[:-1])
-    f.write(answer[:-1])
+            print("{}, {}".format(str(weight), route[:-1]))
+        if format is 'shortest':
+            # only write first result, no weight output
+            f.write("{}".format(route[:-1]))
+            return 0
+        f.write("{}, {}\n".format(str(weight), route[:-1]))
+
     return 0
 
 
 def main():
-    # file i/o:
-    # g.csv: graph data; stv1.csv: path data
-    # o.csv: file to write
-    script, g, stv1, o = argv
-    g = open(g)
-    stv1 = open(stv1)
-    o = open(o, 'w')
+    """Parse arguments and main logic."""
+    import argparse
+    # argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument('topo',
+                        help='`topo.csv`, contains graph')
+    parser.add_argument('demand', 
+                        help='`demand.csv`, contains s, t, v1.')
+    parser.add_argument('o', 
+                        help='output filename')
+    parser.add_argument('-s', '--shortest',
+                        help='only output shortest route',
+                        action="store_true")
+    parser.add_argument('-p', '--plot',
+                        help='topo figure printout',
+                        action="store_true")
+    parser.add_argument('-v', '--verbose',
+                        help='verbose printout',
+                        action="store_true")
+    args = parser.parse_args()
+    topo = open(args.topo)
+    demand = open(args.demand)
+    o = open(args.o, 'w')
+    verbose = args.verbose
+    output_plot = args.plot
+    if args.shortest is True:
+        format = 'shortest'
+    else:
+        format = 'all'
 
-    G, s, t, v1 = read_csv(g,stv1)
-    # check_input(G, s, t, v1)
-    # set verbose to True to get more output infomation
-    answer = trevize(G, s, t, v1, verbose=False)
-    write_csv(o, answer, verbose=False)
-
+    G, s, t, v1 = read_csv(topo, demand)
+    if output_plot:
+        import os.path
+        directory = os.path.dirname(args.topo)
+        plot_name = os.path.join(directory, 'topo.png')
+        check_input_and_plot(G, s, t, v1, plot_name, verbose)
+    answer = voyager(G, s, t, v1, verbose)
+    write_csv(o, answer, format, verbose)
 
 if __name__ == '__main__':
     main()
