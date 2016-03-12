@@ -2,23 +2,30 @@
 
 """Gaia: the test framework for Trevize
 
+`$python gaia.py cases algorithm1 [algorithm2-n]`
+
 - input:
-    - algorithms
-        - should meet run format of `algorithm topo.csv demand.csv out.csv`
+    - test cases: a directory of test cases
+        - a separated directory (`topo.csv` and `demand.csv`) for each case.
+        - a ref.csv file for calculating score [not implemented]
+    - algorithms: at least one
+        - should meet run format of `$algorithm topo.csv demand.csv out.csv`
+            - Python format available as 
+              `python algorithm topo.csv demand.csv out.csv`
+            - duplicates of same algorithm is removed
         - note: algorithm may be single algorithm,
                 or hybrid of different algorithms.
-    - test cases
 - process:
     - for each case, test every algorithm
-- output: to a log file
+- output: 
     - make a directory of output
-        - test/Gaia_timestamp/
+        - `test/Gaia_timestamp/`
     - tree: begin at `Gaia_timestamp/`
         - `parameters.txt`
         - `log.txt`
         - `/algorithm_x/case_y.csv`
-    - features of the test case
-    - result of algorithms
+    - features of the test case [not implemented]
+    - result of algorithms [not implemented]
         - time
         - route
         - weight
@@ -54,6 +61,7 @@ def parse_input():
 
     return algorithms_list, cases
 
+
 def process(algorithms_list, cases):
     """For each case, test every algorithm."""
 
@@ -80,9 +88,11 @@ def process(algorithms_list, cases):
         path = os.path.join(cases, directory)
         if os.path.isdir(path):
             case_file_list = os.listdir(path)
-            if 'topo.csv' in case_file_list and 'demand.csv' in case_file_list:
+            if ('topo.csv' in case_file_list and 
+                'demand.csv' in case_file_list):
                 checked_cases.append(path)
 
+    # run algorithms on cases, and write log
     from subprocess import call
     import re
 
@@ -91,7 +101,8 @@ def process(algorithms_list, cases):
         algorithm_name = re.search('(?<=/)[^/]*',algorithm).group()
             # note of re: last '/' to end
         print(algorithm_name)
-        if algorithm_name[-3:] == '.py':  # an py algortithm
+        if algorithm_name[-3:] == '.py':  
+            # an py algortithm, del '.py'
             is_python_algorithm = True
             algorithm_name = algorithm_name[:-3]
         algorithm_dir = output_dir + '/' + algorithm_name
@@ -111,7 +122,8 @@ def process(algorithms_list, cases):
                 call([algorithm, topo, demand, output])
             t1 = time.time()
             runtime = t1 - t0
-            print(runtime)
+            # print(runtime)  # for debugging
+
             log_file.write('{algorithm}, {case}, {t}\n'.format(
                 algorithm=algorithm_name, case=case_name, t=runtime))
 
