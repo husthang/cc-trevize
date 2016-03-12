@@ -11,6 +11,12 @@
 - process:
     - for each case, test every algorithm
 - output: to a log file
+    - make a directory of output
+        - test/Gaia_timestamp/
+    - tree: begin at `Gaia_timestamp/`
+        - `parameters.txt`
+        - `log.txt`
+        - `/algorithm_x/case_y.csv`
     - features of the test case
     - result of algorithms
         - time
@@ -23,39 +29,51 @@
 # Dependency: Python 3
 
 
-import argparse
-
-
 def parse_input():
     """Parse arguments."""
 
+    import argparse
     # argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument('algorithms',
-                        help='list of algorithms (Python format in quote)' +
-                             'for running Gaia')
     parser.add_argument('cases',
                         help='directory of cases for running Gaia')
+    parser.add_argument('algorithms', nargs='*',
+                        help='n algorithms (Python format in quote)' +
+                             'for running Gaia')
+
     args = parser.parse_args()
-    algorithms = args.algorithms
+    algorithms_list = args.algorithms
     cases = args.cases
 
-    # parse algorithms
-    import re
-    t = re.compile('[\[\],\ ]')  # process '[', ']', <space>
+    for i in range(len(algorithms_list)-1, 0, -1):
+        if algorithms_list[i] in algorithms_list[:i]:
+            del algorithms_list[i]  # remove duplicates
 
-    algorithms_list = t.split(algorithms)
-    for i in range(len(algorithms_list)-1, -1, -1):
-        if algorithms_list[i] is '':
-            del algorithms_list[i]
+    print('cases directory:', cases)
+    print('algorithms:', algorithms_list)
 
     return algorithms_list, cases
 
 def process(algorithms_list, cases):
     """For each case, test every algorithm."""
 
-    # get cases dir list
+    # make directory for the test, and write parameter file.
+    import time
     import os
+
+    timestamp = time.strftime("%Y%m%d_%H%M%S")
+    output_dir = '{base}/Gaia_{time}'.format(base=cases, time=str(timestamp))
+    os.mkdir(output_dir)
+    parameter_file = open(output_dir + '/' + 'parameters.txt', 'w')
+    parameter_file.write(timestamp + '\n' +
+                         'cases: ' + cases + '\n' +
+                         'algorithms list: ' + str(algorithms_list))
+    parameter_file.close()
+    log_file = open(output_dir + '/' + 'log.txt', 'w')
+    log_file.write(timestamp + '\n')
+    log_file.write('algorithm, case, time' + '\n')
+
+    # get cases dir list
     list_cases = os.listdir(cases)
     checked_cases = []
     for directory in list_cases:
@@ -65,33 +83,37 @@ def process(algorithms_list, cases):
             if 'topo.csv' in case_file_list and 'demand.csv' in case_file_list:
                 checked_cases.append(path)
 
-    print(checked_cases)  # for debugging
-
-    import time
+    from subprocess import call
     import re
 
-    timestamp = time.strftime("%Y%m%d%H%M%S", time.gmtime(time.time()))
-    output_dir = '../test/gaia-' + timestamp
-    os.mkdir(output_dir)
-    from subprocess import call
-    import time
     for algorithm in algorithms_list:
-        for case in checked_cases:
+        is_python_algorithm = False
+        algorithm_name = re.search('(?<=/)[^/]*',algorithm).group()
+            # note of re: last '/' to end
+        print(algorithm_name)
+        if algorithm_name[-3:] == '.py':  # an py algortithm
+            is_python_algorithm = True
+            algorithm_name = algorithm_name[:-3]
+        algorithm_dir = output_dir + '/' + algorithm_name
+        os.mkdir(algorithm_dir)
 
+        for case in checked_cases:
             case_name = re.search('case.*', case).group()
-            print(case_name)
-            algorithm = '../py-trevize/py-trevize.py'
             topo = os.path.join(case, 'topo.csv')
             demand = os.path.join(case, 'demand.csv')
-            output = output_dir + '/' + case_name + '_o.csv'
+            output = algorithm_dir + '/' + case_name + '_o.csv'
 
+            # call algorithm and count time
             t0 = time.time()
-            call(["python", algorithm, topo, demand, output])
+            if is_python_algorithm:
+                call(["python", algorithm, topo, demand, output])
+            else:
+                call([algorithm, topo, demand, output])
             t1 = time.time()
             runtime = t1 - t0
             print(runtime)
-            # get return code and time
-
+            log_file.write('{algorithm}, {case}, {t}\n'.format(
+                algorithm=algorithm_name, case=case_name, t=runtime))
 
 
 if __name__ == '__main__':
