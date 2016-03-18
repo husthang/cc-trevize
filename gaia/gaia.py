@@ -47,10 +47,14 @@ def parse_input():
     parser.add_argument('algorithms', nargs='*',
                         help='n algorithms (Python format in quote)' +
                              'for running Gaia')
+    parser.add_argument('-p', '--plot',
+                        help='topo figure printout',
+                        action="store_true")
 
     args = parser.parse_args()
     algorithms_list = args.algorithms
     cases = args.cases
+    plot = args.plot
 
     for i in range(len(algorithms_list)-1, 0, -1):
         if algorithms_list[i] in algorithms_list[:i]:
@@ -59,10 +63,10 @@ def parse_input():
     print('cases directory:', cases)
     print('algorithms:', algorithms_list)
 
-    return algorithms_list, cases
+    return algorithms_list, cases, plot
 
 
-def process(algorithms_list, cases):
+def process(algorithms_list, cases, plot=False):
     """For each case, test every algorithm."""
 
     # make directory for the test, and write parameter file.
@@ -109,15 +113,19 @@ def process(algorithms_list, cases):
         os.mkdir(algorithm_dir)
 
         for case in checked_cases:
-            case_name = re.search('case.*', case).group()
+            case_name = re.search('case[^/]*\d+', case).group()
             topo = os.path.join(case, 'topo.csv')
             demand = os.path.join(case, 'demand.csv')
             output = algorithm_dir + '/' + case_name + '_o.csv'
+            print("processing: {}".format(case))
 
             # call algorithm and count time
             t0 = time.time()
             if is_python_algorithm:
-                call(["python", algorithm, topo, demand, output])
+                if plot:
+                    call(["python", algorithm, topo, demand, output, "-p"])
+                else:                    
+                    call(["python", algorithm, topo, demand, output])
             else:
                 call([algorithm, topo, demand, output])
             t1 = time.time()
@@ -129,5 +137,5 @@ def process(algorithms_list, cases):
 
 
 if __name__ == '__main__':
-    algorithms_list, cases = parse_input()
-    process(algorithms_list, cases)
+    algorithms_list, cases, plot = parse_input()
+    process(algorithms_list, cases, plot)

@@ -89,15 +89,25 @@ def voyager(G, s, t, v1, verbose):
     input: graph, s, t, v1
     output: valid path list `valid_paths`
     """
-    all_paths = list(nx.shortest_simple_paths(G, s, t, weight='weight'))
     set_v1 = set(v1)
     valid_paths = []
-    for path in all_paths:
+    num_paths = 0
+    try :
+        for path in nx.all_simple_paths(G, s, t):
+            if verbose:
+                print(path)
+            if set_v1 <= set(path[1:-1]):
+                # use set to find if all elements in V' are in path
+                if verbose:
+                    print(path)
+                num_paths += 1
+                valid_paths.append(path)
+                if num_paths > 10:
+                    break
+    except nx.NetworkXNoPath:
         if verbose:
-            print(path)
-        if set_v1 <= set(path[1:-1]):
-            # use set to find if all elements in V' are in path
-            valid_paths.append(path)
+            print('no path')
+        return "NA"
     # return
     if valid_paths:
         return valid_paths, G
