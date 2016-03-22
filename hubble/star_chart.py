@@ -3,12 +3,16 @@
 """Star chart: take a snapshot of the universe(graph).
 
 - input
-    - `python star_chart.py topo.csv demand.csv`
+    - `python star_chart.py topo.csv demand.csv [-a answer.csv]`
     - topo: `topo.csv`, contains graph
     - demand: `demand.csv`, contains `s, t, v1(V')`
 - output
-    - all valid paths in csv format (weight, route)
-    - shortest route (when `-s` is True)
+    - `topo.png` in same directory
+        - weight of edges labeled
+        - source: blue star
+        - sink: red star
+        - vertrices in V': orange box
+        - [if -a/--answer,] path: violet
 """
 
 
@@ -18,15 +22,16 @@
 
 import networkx as nx
 import pygraphviz as pgv
+import os
 
 
-def read_csv(g, stv1):
-    """Read the two csv input files.
+def read_csv(g, stv1, path):
+    """Read the csv input files.
 
     input: two csv input file
         detail of input format in http://codecraft.huawei.com/home/detail
         solve multigraph in input
-    output: NetworkX-graph
+    output: NetworkX-graph & path info
     """
     import re
     num = re.compile('\d+')
@@ -57,15 +62,20 @@ def read_csv(g, stv1):
         t = stv1_list[1]
         v1 = stv1_list[2:]
 
-    return G, s, t, v1
+    if path:  # provided answer list
+        answer = re.findall(num, path.read())
+    else:
+        answer = False
+
+    return G, s, t, v1, answer
 
 
-def star_chart(G, s, t, v1, plot_name):
+def star_chart(G, s, t, v1, answer, plot_name):
     """Print input data."""
-    from pprint import pprint
 
     nx.drawing.nx_agraph.write_dot(G, plot_name + 'dot')
     A = pgv.AGraph(plot_name + 'dot')
+    os.remove(plot_name + 'dot')
 
     # set graph, source and sink, edge labels
     A.graph_attr['label'] = str(s) + ' -> ' + str(t)
@@ -88,18 +98,27 @@ def star_chart(G, s, t, v1, plot_name):
     # set edge label as weight
     num_edges = 0
     for edge in A.edges_iter():
+        if answer:
+            if edge.attr['label'] in answer:
+                edge.attr['color'] = 'violet'
         edge.attr['label'] = edge.attr['weight']
         num_edges += 1
 
     # http://pygraphviz.github.io/documentation/pygraphviz-1.3rc1/reference/agraph.html#pygraphviz.AGraph.draw
+    # http://www.graphviz.org/doc/info/attrs.html
     # dot graph is slow when the graph is big (>50 edges)
     if num_edges < 100:
         A.draw(plot_name, prog='dot', args='-splines=spline')
     elif num_edges < 500:
+        for edge in A.edges_iter():
+            edge.attr['penwidth'] = '0.5'
+            edge.attr['arrowsize'] = '0.5'
         A.draw(plot_name, prog='fdp')
     else:
-        A.draw(plot_name, prog='neato')
-
+        for edge in A.edges_iter():
+            edge.attr['penwidth'] = '0.5'
+            edge.attr['arrowsize'] = '0.5'
+        A.draw(plot_name, prog='twopi')
 
     print('Star chart generated as {}.'.format(plot_name))
 
@@ -109,19 +128,26 @@ def main():
     import argparse
     # argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument('directory',
-                        help='directory contains `topo.csv` and `demand.csv`.')
+    parser.add_argument('topo',
+                        help='`topo.csv`, contains graph')
+    parser.add_argument('demand',
+                        help='`demand.csv`, contains s, t, v1.')
+    parser.add_argument('-a', '--answer', nargs='?',
+                        help='`answer.csv`, contains path')
     args = parser.parse_args()
-    topo = open(args.directory + '/topo.csv')
-    demand = open(args.directory + '/demand.csv')
+    topo = open(args.topo)
+    demand = open(args.demand)
+    if args.answer:
+        answer = open(args.answer)
+    else:
+        answer = False
+    G, s, t, v1, answer = read_csv(topo, demand, answer)  # read file
 
-    G, s, t, v1 = read_csv(topo, demand)  # read file
-
-    import os.path
-    directory = os.path.dirname(args.directory)
+    # generate output filename and plot
+    directory = os.path.dirname(args.topo)
     plot_name = os.path.join(directory, 'topo.png')
-    star_chart(G, s, t, v1, plot_name)
-    
+    star_chart(G, s, t, v1, answer, plot_name)
+
     return 0
 
 
