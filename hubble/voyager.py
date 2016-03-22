@@ -2,23 +2,21 @@
 
 """Voyager: find all possible routes in the universe(graph).
 
-- input 
+- input
     - topo: `topo.csv`, contains graph
     - demand: `demand.csv`, contains `s, t, v1(V')`
     - o: output filename
     - '-s', '--shortest': only output shortest route
     - '-v', '--verbose': verbose printout
-    - '-p', '--plot': topo figure printout `topo.png`
 - output
     - all valid paths in csv format (weight, route)
     - shortest route (when `-s` is True)
 """
 
 # Author: Mo Frank Hu (mofrankhu@gmail.com)
-# Dependencies: Python 3, NetworkX, matplotlib(for plot)
+# Dependencies: Python 3, NetworkX
 
 import networkx as nx
-from sys import argv
 
 
 def read_csv(g, stv1):
@@ -31,7 +29,7 @@ def read_csv(g, stv1):
     """
     import re
     num = re.compile('\d+')
-    
+
     G = nx.DiGraph()
     for line in g:
         nums = re.findall(num, line)
@@ -57,30 +55,8 @@ def read_csv(g, stv1):
         s = stv1_list[0]
         t = stv1_list[1]
         v1 = stv1_list[2:]
-    
+
     return G, s, t, v1
-
-
-def check_input_and_plot(G, s, t, v1, plot_name, verbose):
-    """Print input data."""
-    from pprint import pprint
-    import matplotlib.pyplot as plt
-
-    if verbose:
-        print('nodes:', G.nodes())
-        print('edges:')
-        pprint(G.edges(data=True))
-
-    # draw graph and edge labels in same layout
-    layout = nx.circular_layout(G)
-    nx.draw_networkx(G,pos=layout)
-    nx.draw_networkx_edge_labels(G, pos=layout, label_pos=0.5, font_size=8)
-
-    if verbose:
-        print('s: {}, t: {}'.format(s, t))
-        print('v1', v1)
-
-    plt.savefig(plot_name)
 
 
 def voyager(G, s, t, v1, verbose):
@@ -89,15 +65,25 @@ def voyager(G, s, t, v1, verbose):
     input: graph, s, t, v1
     output: valid path list `valid_paths`
     """
-    all_paths = list(nx.shortest_simple_paths(G, s, t, weight='weight'))
     set_v1 = set(v1)
     valid_paths = []
-    for path in all_paths:
+    num_paths = 0
+    try:
+        for path in nx.all_simple_paths(G, s, t):
+            if verbose:
+                print(path)
+            if set_v1 <= set(path[1:-1]):
+                # use set to find if all elements in V' are in path
+                if verbose:
+                    print(path)
+                num_paths += 1
+                valid_paths.append(path)
+                if num_paths > 10:
+                    break
+    except nx.NetworkXNoPath:
         if verbose:
-            print(path)
-        if set_v1 <= set(path[1:-1]):
-            # use set to find if all elements in V' are in path
-            valid_paths.append(path)
+            print('no path')
+        return "NA"
     # return
     if valid_paths:
         return valid_paths, G
@@ -110,14 +96,14 @@ def voyager(G, s, t, v1, verbose):
 def write_csv(f, answer, format, verbose):
     """Write the answer to csv file.
 
-    proposed format: 
-        - 'NA' for no answer; 
+    proposed format:
+        - 'NA' for no answer;
         - 'e[1]|e[2]|..|e[n]' for shortest path, e[i] is label of edge
     parameters:
         - f: file output
         - answer: NA or path list `paths`
-        - format: 
-            - 'all' to output all paths; 
+        - format:
+            - 'all' to output all paths;
             - 'shortest' to output shortest route (proposed `result.csv`)
         - verbose: set to True to printout more information
     """
@@ -153,15 +139,12 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('topo',
                         help='`topo.csv`, contains graph')
-    parser.add_argument('demand', 
+    parser.add_argument('demand',
                         help='`demand.csv`, contains s, t, v1.')
-    parser.add_argument('o', 
+    parser.add_argument('o',
                         help='output filename')
     parser.add_argument('-s', '--shortest',
                         help='only output shortest route',
-                        action="store_true")
-    parser.add_argument('-p', '--plot',
-                        help='topo figure printout',
                         action="store_true")
     parser.add_argument('-v', '--verbose',
                         help='verbose printout',
@@ -171,20 +154,16 @@ def main():
     demand = open(args.demand)
     o = open(args.o, 'w')
     verbose = args.verbose
-    output_plot = args.plot
     if args.shortest is True:
         format = 'shortest'
     else:
         format = 'all'
 
     G, s, t, v1 = read_csv(topo, demand)
-    if output_plot:
-        import os.path
-        directory = os.path.dirname(args.topo)
-        plot_name = os.path.join(directory, 'topo.png')
-        check_input_and_plot(G, s, t, v1, plot_name, verbose)
+
     answer = voyager(G, s, t, v1, verbose)
     write_csv(o, answer, format, verbose)
+    return 0
 
 if __name__ == '__main__':
     main()
