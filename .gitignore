@@ -2,6 +2,7 @@
 graph_builder/graph_builder
 wiki/
 test/
+submission/
 
 # gitignore: python + c @ GitHub
 

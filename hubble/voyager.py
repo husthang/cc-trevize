@@ -2,7 +2,7 @@
 
 """Voyager: find all possible routes in the universe(graph).
 
-- input 
+- input
     - topo: `topo.csv`, contains graph
     - demand: `demand.csv`, contains `s, t, v1(V')`
     - o: output filename
@@ -18,7 +18,6 @@
 # Dependencies: Python 3, NetworkX, matplotlib(for plot)
 
 import networkx as nx
-from sys import argv
 
 
 def read_csv(g, stv1):
@@ -31,7 +30,7 @@ def read_csv(g, stv1):
     """
     import re
     num = re.compile('\d+')
-    
+
     G = nx.DiGraph()
     for line in g:
         nums = re.findall(num, line)
@@ -57,30 +56,53 @@ def read_csv(g, stv1):
         s = stv1_list[0]
         t = stv1_list[1]
         v1 = stv1_list[2:]
-    
+
     return G, s, t, v1
 
 
 def check_input_and_plot(G, s, t, v1, plot_name, verbose):
     """Print input data."""
     from pprint import pprint
-    import matplotlib.pyplot as plt
+    import pygraphviz as pgv
+    # import matplotlib.pyplot as plt
 
     if verbose:
         print('nodes:', G.nodes())
         print('edges:')
         pprint(G.edges(data=True))
 
-    # draw graph and edge labels in same layout
-    layout = nx.circular_layout(G)
-    nx.draw_networkx(G,pos=layout)
-    nx.draw_networkx_edge_labels(G, pos=layout, label_pos=0.5, font_size=8)
 
-    if verbose:
-        print('s: {}, t: {}'.format(s, t))
-        print('v1', v1)
+    nx.drawing.nx_agraph.write_dot(G, plot_name + 'dot')
+    A = pgv.AGraph(plot_name+ 'dot')
 
-    plt.savefig(plot_name)
+    # set graph, source and sink, edge labels
+    A.graph_attr['label'] = str(s) + ' -> ' + str(t)
+
+    # source: blue, sink: red
+    source = A.get_node(s)
+    source.attr['color'] = 'blue'
+    sink = A.get_node(t)
+    sink.attr['color'] = 'red'
+
+    for edge in A.edges_iter():
+        edge.attr['label'] = edge.attr['weight']
+    # print(A.string())
+    print(plot_name)
+
+
+    A.draw(plot_name, prog='dot', args='-splines=spline')
+
+
+    # # draw graph and edge labels in same layout
+    # layout = nx.circular_layout(G)
+    # nx.draw_networkx(G, pos=layout)
+    # nx.draw_networkx_edge_labels(G, pos=layout, label_pos=0.5, font_size=8)
+
+    # if verbose:
+    #     print('s: {}, t: {}'.format(s, t))
+    #     print('v1', v1)
+
+    # plt.savefig(plot_name)
 
 
 def voyager(G, s, t, v1, verbose):
@@ -92,7 +114,7 @@ def voyager(G, s, t, v1, verbose):
     set_v1 = set(v1)
     valid_paths = []
     num_paths = 0
-    try :
+    try:
         for path in nx.all_simple_paths(G, s, t):
             if verbose:
                 print(path)
@@ -120,14 +142,14 @@ def voyager(G, s, t, v1, verbose):
 def write_csv(f, answer, format, verbose):
     """Write the answer to csv file.
 
-    proposed format: 
-        - 'NA' for no answer; 
+    proposed format:
+        - 'NA' for no answer;
         - 'e[1]|e[2]|..|e[n]' for shortest path, e[i] is label of edge
     parameters:
         - f: file output
         - answer: NA or path list `paths`
-        - format: 
-            - 'all' to output all paths; 
+        - format:
+            - 'all' to output all paths;
             - 'shortest' to output shortest route (proposed `result.csv`)
         - verbose: set to True to printout more information
     """
@@ -163,9 +185,9 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('topo',
                         help='`topo.csv`, contains graph')
-    parser.add_argument('demand', 
+    parser.add_argument('demand',
                         help='`demand.csv`, contains s, t, v1.')
-    parser.add_argument('o', 
+    parser.add_argument('o',
                         help='output filename')
     parser.add_argument('-s', '--shortest',
                         help='only output shortest route',
@@ -193,8 +215,10 @@ def main():
         directory = os.path.dirname(args.topo)
         plot_name = os.path.join(directory, 'topo.png')
         check_input_and_plot(G, s, t, v1, plot_name, verbose)
+        return 0
     answer = voyager(G, s, t, v1, verbose)
     write_csv(o, answer, format, verbose)
+    return 0
 
 if __name__ == '__main__':
     main()

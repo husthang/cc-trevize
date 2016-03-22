@@ -10,14 +10,14 @@
         - a ref.csv file for calculating score [not implemented]
     - algorithms: at least one
         - should meet run format of `$algorithm topo.csv demand.csv out.csv`
-            - Python format available as 
+            - Python format available as
               `python algorithm topo.csv demand.csv out.csv`
             - duplicates of same algorithm is removed
         - note: algorithm may be single algorithm,
                 or hybrid of different algorithms.
 - process:
     - for each case, test every algorithm
-- output: 
+- output:
     - make a directory of output
         - `test/Gaia_timestamp/`
     - tree: begin at `Gaia_timestamp/`
@@ -92,8 +92,8 @@ def process(algorithms_list, cases, plot=False):
         path = os.path.join(cases, directory)
         if os.path.isdir(path):
             case_file_list = os.listdir(path)
-            if ('topo.csv' in case_file_list and 
-                'demand.csv' in case_file_list):
+            if ('topo.csv' in case_file_list and
+                    'demand.csv' in case_file_list):
                 checked_cases.append(path)
 
     # run algorithms on cases, and write log
@@ -102,10 +102,10 @@ def process(algorithms_list, cases, plot=False):
 
     for algorithm in algorithms_list:
         is_python_algorithm = False
-        algorithm_name = re.search('(?<=/)[^/]*',algorithm).group()
-            # note of re: last '/' to end
+        algorithm_name = re.search('(?<=/)[^/]*', algorithm).group()
+        # note of re: last '/' to end
         print(algorithm_name)
-        if algorithm_name[-3:] == '.py':  
+        if algorithm_name[-3:] == '.py':
             # an py algortithm, del '.py'
             is_python_algorithm = True
             algorithm_name = algorithm_name[:-3]
@@ -124,7 +124,7 @@ def process(algorithms_list, cases, plot=False):
             if is_python_algorithm:
                 if plot:
                     call(["python", algorithm, topo, demand, output, "-p"])
-                else:                    
+                else:
                     call(["python", algorithm, topo, demand, output])
             else:
                 call([algorithm, topo, demand, output])
