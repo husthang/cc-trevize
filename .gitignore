@@ -3,6 +3,7 @@ graph_builder/graph_builder
 wiki/
 test/
 submission/
+*.ipynb
 
 # gitignore: python + c @ GitHub
 
