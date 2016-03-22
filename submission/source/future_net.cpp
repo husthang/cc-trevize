@@ -87,13 +87,54 @@ void initalize(FILE *fp_graph) //
         {
             //p=(struct edgenode *)malloc(sizeof(struct edgenode));
             q = (struct edgenode *)malloc(sizeof(struct edgenode));
+
+            edgenode *qtmp = g[s].first;
+            edgenode *qtmp_pre = NULL;
+            while (qtmp != NULL)
+            {
+                if (qtmp->cost < c)
+                {
+                    qtmp_pre = qtmp;
+                    qtmp = qtmp->next;
+                }
+                else
+                {
+                    break;
+                }
+            }
+
+            q->no = t;
+            q->next = qtmp;
+            if (qtmp == g[s].first)
+            {
+                g[s].first = q;
+            }
+            else
+            {
+                qtmp_pre->next = q;
+            }
+            q->eid = id;
+            q->cost = c;
+
+            /*
+            qtmp = g[s].first;
+            while (qtmp != NULL)
+            {
+                printf("%d ",qtmp->cost);
+                qtmp = qtmp->next;
+            }
+            printf("\n");
+            */
+
+            /*
             //p->no=s;
             q->no = t;
             //p->next=g[t].first;g[t].first=p; 此句加上即可变为无向图。
-            q->next = g[s].first;
+            q->next = g[s].first;   // 链表往前插
             g[s].first = q;
             q->eid = id;
             q->cost = c;
+            */
 
             if (isinter(s) && isinter(t))
             {
@@ -202,6 +243,18 @@ bool searchPath(int st,int en, int level, clock_t beg_t)
     costs[top] = 0;
     edges[top] = 0;
 
+    p = g[v].first;
+    int count = 0;
+    while (p != NULL)
+    {
+        count++;
+        p = p->next;
+    }
+    float time_inter = 9.9 / (float)count;
+    //printf("Time_Inter: %f\n", time_inter);
+    float time_limit = time_inter; 
+    struct edgenode *pst = g[st].first;
+
     /*
     for (int te = 0; te < MAX; te++)
     {
@@ -224,9 +277,24 @@ bool searchPath(int st,int en, int level, clock_t beg_t)
         {
             p = g[v].first;
             head = 0;
+
+            /*
+            edgenode *qtmp = p;
+            while (qtmp != NULL)
+            {
+                printf("%d ",qtmp->cost);
+                qtmp = qtmp->next;
+            }
+            printf("\n");
+            */
         }
         else
+        {
             p = p->next;
+        }
+
+        RENEW:
+
         if(p && p->level <= level)
         {
             //printf("p%d ",p->eid);
@@ -235,10 +303,12 @@ bool searchPath(int st,int en, int level, clock_t beg_t)
                 visit[p->no] = 1;
                 top++;
                 stack[top] = p->no;
+
                 costs[top] = p->cost;
                 edges[top] = p->eid;
                 if(p->no==en)
                 {
+                    //printf("p%d ",p->eid);
                     //printf("PATH: ");
                     int intertmp = internum;
                     int costsum = 0;
@@ -263,12 +333,6 @@ bool searchPath(int st,int en, int level, clock_t beg_t)
                         }
                     }
                     //printf(" COST: %d\n",costsum);
-                    end_t = clock();
-                    duration = (double)(end_t - beg_t) / CLOCKS_PER_SEC;
-                    count++;
-                    //printf("Least Cost: %d in %f second. %d\n", costleast, duration, count);
-                    if (duration > 9.9)
-                        break;
             
                     visit[en] = 0;
                     top--;  //printf("TOP: %d\n",top);
@@ -277,19 +341,64 @@ bool searchPath(int st,int en, int level, clock_t beg_t)
                 }
                 else
                 {
+                    //printf("%d ",stack[top]);
                     v = stack[top];
                     head = 1;
                 }
+
+                end_t = clock();
+                duration = (double)(end_t - beg_t) / CLOCKS_PER_SEC;
+                //count++;
+                //printf("Least Cost: %d in %f second. %d\n", costleast, duration, count);
+                
+                /*
+                if (duration > 9.9)
+                    break;
+                */
+
+                if (duration > time_limit)
+                {
+                    //printf("Least Cost: %d in %f second\n", costleast, duration);
+                    if (duration > 9.9)
+                    {
+                        break;
+                    }
+                    time_limit += time_inter;
+
+                    pst = pst->next;
+                    if (pst == NULL)
+                    {
+                        break;
+                    }
+                    for (i=0;i<MAX;i++) 
+                        visit[i]=0;
+                    visit[en] = 0;
+                    top = 1;  //printf("TOP: %d\n",top);
+                    head = 0;
+                    visit[st] = 1;
+                    v = st;
+                    p = pst;
+                    stack[top] = p->no;
+                    costs[top] = 0;
+                    edges[top] = 0;
+
+                    //printf("goto renew\n"); 
+                    goto RENEW;
+                }
+
             } //
         }
         else
         {
+            //printf(" OKOKOK \n");
             visit[stack[top--]] = 0; //
             if(top)
             {
                 p = g[stack[top]].first;
                 while(p->no != v) 
+                {
                     p = p->next;
+                }
                 v = stack[top];
                 head = 0;
             }
@@ -374,7 +483,7 @@ int main(int argc, char *argv[])
 
     int flag;
     double duration;
-    int level = 0;
+    int level = 0;/*
     do
     {
         flag = searchPath(st,en,level,beg_t);
@@ -382,7 +491,9 @@ int main(int argc, char *argv[])
         level++;
         end_t = clock();
         duration = (double)(end_t - beg_t) / CLOCKS_PER_SEC;
-    } while (level <= 600 && duration < 9.9);
+    } while (level <= 600 && duration < 9.9);*/
+
+    searchPath(st, en, 601,beg_t);
 
     if (costleast == 99999)
     {
@@ -402,9 +513,11 @@ int main(int argc, char *argv[])
         //printf("\nCost: %d\n",costleast);
     }
 
-    //end_t = clock();
-    //duration = (double)(end_t - beg_t) / CLOCKS_PER_SEC;
-    //printf("\n%f second\n", duration);
+    /*
+    end_t = clock();
+    duration = (double)(end_t - beg_t) / CLOCKS_PER_SEC;
+    printf("\n%f second\n", duration);
+    */
     fclose(fp_graph);
     fclose(fp_path);
     free(str);
