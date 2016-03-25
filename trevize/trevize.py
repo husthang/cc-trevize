@@ -29,12 +29,25 @@ def read_csv(g, stv1):
     import re
     num = re.compile('\d+')
 
+    # s, t, v1(may be blank)
+    for line in stv1:
+        stv1_list = re.findall(num, line)
+        for i in range(len(stv1_list)):
+            stv1_list[i] = int(stv1_list[i])
+        s = stv1_list[0]
+        t = stv1_list[1]
+        v1 = stv1_list[2:]
+
     G = nx.DiGraph()
     for line in g:
         nums = re.findall(num, line)
 
         for i in range(4):
             nums[i] = int(nums[i])  # re str to int
+
+        if nums[1] is t or nums[2] is s:
+            # print("s/t ", line)
+            continue
 
         # solve multigraph: find best edge and apply
         try:
@@ -46,14 +59,12 @@ def read_csv(g, stv1):
                 G[nums[1]][nums[2]]['weight'] = nums[3]
                 G[nums[1]][nums[2]]['label'] = nums[0]
 
-    # s, t, v1(may be blank)
-    for line in stv1:
-        stv1_list = re.findall(num, line)
-        for i in range(len(stv1_list)):
-            stv1_list[i] = int(stv1_list[i])
-        s = stv1_list[0]
-        t = stv1_list[1]
-        v1 = stv1_list[2:]
+    for node in G.nodes():
+        if (node is not s) and (node is not t):
+            if (G.in_degree(node) is 0) or (G.out_degree(node) is 0):
+                # print(node)
+                G.remove_node(node)
+                # dead node
 
     return G, s, t, v1
 
@@ -83,7 +94,7 @@ def trevize(G, s, t, v1, verbose):
         path, weight = paths.popleft()
         end_vertex = path[-1]
         next_vertex_list = G[end_vertex]
-        
+
         for vertex in sort_path(end_vertex, next_vertex_list):
             # print(vertex, G[end_vertex][vertex])
             weight_1 = weight + G[end_vertex][vertex]['weight']
