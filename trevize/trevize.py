@@ -70,25 +70,33 @@ def trevize(G, s, t, v1, verbose):
     from collections import deque
     paths = deque()
     set_v1 = set(v1)
-    global num_paths
+    global num_paths, max_weight
     valid_paths = []
     num_paths = 0
+    BIG_WEIGHT = 4800
+    max_weight = BIG_WEIGHT
 
     def dfs(G, paths):
         """DFS search algorithm."""
-        global num_paths
-        path = paths.popleft()
-        # print(path)  # debug
+        global num_paths, max_weight
+
+        path, weight = paths.popleft()
         end_vertex = path[-1]
         next_vertex_list = G[end_vertex]
+        
         for vertex in sort_path(end_vertex, next_vertex_list):
             # print(vertex, G[end_vertex][vertex])
-            if vertex is t:  # got sink
-                if check_path(path + [vertex]):
-                    num_paths += 1
-                    valid_paths.append(path + [vertex])
-            elif vertex not in path:  # new vertex
-                paths.appendleft(path + [vertex])
+            weight_1 = weight + G[end_vertex][vertex]['weight']
+            if weight_1 < max_weight:
+                if vertex is t:  # got sink
+                    if check_path(path + [vertex]):
+                        print(max_weight, weight_1)
+                        max_weight = weight_1
+                        num_paths += 1
+                        valid_paths.append(path + [vertex])
+                elif vertex not in path:  # new vertex
+                    paths.appendleft([path + [vertex], weight_1])
+            # else: forming cycle or dead
 
     def check_path(path):
         """Check if path contains all vertices in v1."""
@@ -112,11 +120,11 @@ def trevize(G, s, t, v1, verbose):
 
         return sorted(sorted_list, key=sorted_list.get)
 
-    paths.appendleft([s])
+    paths.appendleft([[s], 0])
     while paths:
         dfs(G, paths)
     print("num of paths: {}".format(num_paths))
-    
+
     from pprint import pprint
     pprint(valid_paths)
     if valid_paths:
