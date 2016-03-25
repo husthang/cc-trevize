@@ -6,6 +6,8 @@
     - topo: `topo.csv`, contains graph
     - demand: `demand.csv`, contains `s, t, v1(V')`
     - o: output filename
+- process
+    - DFS + DP
 - output
     - path
 """
@@ -72,21 +74,14 @@ def trevize(G, s, t, v1, verbose):
     valid_paths = []
     num_paths = 0
 
-    def check_path(path):
-        """Check if path contains all vertices in v1."""
-        if set_v1 <= set(path[1:-1]):
-            # print('find path:', path)
-            return True
-        else:
-            return False
-
     def dfs(G, paths):
         """DFS search algorithm."""
         global num_paths
         path = paths.popleft()
         # print(path)  # debug
         end_vertex = path[-1]
-        for vertex in G[end_vertex]:
+        next_vertex_list = G[end_vertex]
+        for vertex in sort_path(end_vertex, next_vertex_list):
             # print(vertex, G[end_vertex][vertex])
             if vertex is t:  # got sink
                 if check_path(path + [vertex]):
@@ -95,10 +90,33 @@ def trevize(G, s, t, v1, verbose):
             elif vertex not in path:  # new vertex
                 paths.appendleft(path + [vertex])
 
+    def check_path(path):
+        """Check if path contains all vertices in v1."""
+        if set_v1 <= set(path[1:-1]):
+            # print('find path:', path)
+            return True
+        else:
+            return False
+
+    def sort_path(vertex, next_list):
+        """Sort next vertex list by V' first, then by weight."""
+
+        sorted_list = {}
+        for next_vertex in next_list:
+        # generate value list: add large num to vertices not in v1
+            LARGE_NUM = 21
+            if next_vertex in v1:
+                sorted_list[next_vertex] = next_list[next_vertex]['weight']
+            else:
+                sorted_list[next_vertex] = LARGE_NUM + next_list[next_vertex]['weight']
+
+        return sorted(sorted_list, key=sorted_list.get)
+
     paths.appendleft([s])
     while paths:
         dfs(G, paths)
     print("num of paths: {}".format(num_paths))
+    
     from pprint import pprint
     pprint(valid_paths)
     if valid_paths:
@@ -170,9 +188,13 @@ def main():
 
     G, s, t, v1 = read_csv(topo, demand)
 
+    import time 
+    t0 = time.time()
     answer = trevize(G, s, t, v1, verbose)
-    print(answer)
+    #print(answer)
     # write_csv(o, answer, format, verbose)
+    t1 = time.time()
+    print("time: {}".format(t1-t0))
 
     return 0
 
