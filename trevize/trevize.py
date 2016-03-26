@@ -79,12 +79,16 @@ def trevize(G, s, t, v1, verbose):
     output: valid path list `valid_paths`
     """
     from collections import deque
+    from copy import deepcopy
+    from pprint import pprint
+
     paths = deque()
     set_v1 = set(v1)
     global num_paths, max_weight
     valid_paths = []
     # Y, N dict for edges
     Y = {}
+    Y_inv = {}  # inverse dict of Y
     N = {}
     num_paths = 0
     BIG_WEIGHT = 4800
@@ -92,52 +96,106 @@ def trevize(G, s, t, v1, verbose):
     global i_searched  # num of paths searched
     i_searched = 0
 
+    def init_N_list(G, N):
+        """Initialize N list by iterating nodes."""
+        for node in G.nodes_iter():
+            if G.in_degree(node) > 1:
+                pre_node_list = G.predecessors(node)
+                for i in range(len(pre_node_list)):
+                    N[(pre_node_list[i], node)] = {}
+                    for j in range(len(pre_node_list)):
+                        if j is not i:
+                            N[(pre_node_list[i], node)]\
+                             [(pre_node_list[j], node)] = ""
+
     def dfs(G, paths):
         """DFS search algorithm.
 
         element in the stack: (path, weight)
-            - path: list of vertices in the path"""
+            - path: list of vertices in the path
+            - weight: DP for weight
+            - Y_path: dict, edges must in the path
+            - N_path: dict, edges mustn't in the path
+        process:
+            - init end vertex, end edge
+            - next vertices:
+                - outdegree == 0: dead end
+                - outdegree == 1: add to Y_list
+            """
         global num_paths, max_weight, i_searched
 
-        path, weight = paths.popleft()
+        path, weight, Y_path, N_path = paths.popleft()
+
+        # end vertex and new edge
         end_vertex = path[-1]
         if end_vertex is not s:
             # must have >= 1 edge
             end_edge = (path[-2], path[-1])
-            Y[end_edge] = {}  # todo
+            Y[end_edge] = {}
             N[end_edge] = {}
-        next_vertex_list = G[end_vertex]
-        if len(next_vertex_list) is 0:  # dead end
+
+        next_v_list = G[end_vertex]
+        if len(next_v_list) is 0:  # dead end
             # del edge and end vertex
             G.remove_node(end_vertex)
-            pass
-        elif len(next_vertex_list) is 1:  # Y list
-            # print(next_vertex_list)
-            for key in next_vertex_list:
-                next_vertex = key
-            next_edge = (end_vertex, next_vertex)
+        elif len(next_v_list) is 1:  # one outdegree
+            # print(next_v_list)
+            for key in next_v_list:
+                next_v = key
+            next_edge = (end_vertex, next_v)
             if end_vertex is not s:
                 if next_edge in N[end_edge]:  # forming cycle
                     return
                 if next_edge not in Y[end_edge]:
+                    # adding edge to Y list (by extending inverse list)
                     Y[end_edge][next_edge] = ""
+                    # print("before merge",N[end_edge], N[next_edge])
+                    N[end_edge] = merge_dicts(N[end_edge], N[next_edge])
+                    # print("after merge",N[end_edge])
+                    Y_inv[next_edge] = {}
+                    Y_inv[next_edge][end_edge] = ""
+                    if end_edge in Y_inv:
+                        for edge in Y_inv[end_edge]:
+                            Y_inv[next_edge][edge] = ""
+                            Y[edge][next_edge] = ""
 
-        for vertex in sort_path(end_vertex, next_vertex_list):
-            # print(vertex, G[end_vertex][vertex])
-            weight_1 = weight + G[end_vertex][vertex]['weight']
+        for next_v in sort_path(end_vertex, next_v_list):
+            # print(next_v, G[end_vertex][next_v])
+            next_edge = (end_vertex, next_v)
+            if next_edge in N_path:
+                # print(next_edge, "WE", N_path)
+                # wrong edge
+                continue
+            weight_1 = weight + G[end_vertex][next_v]['weight']
             if weight_1 < max_weight:
-                if vertex is t:  # got sink
-                    if check_path(path + [vertex]):
+                if next_v is t:  # got sink
+                    if check_path(path + [next_v]):
                         print(max_weight, weight_1)
                         max_weight = weight_1
                         num_paths += 1
-                        valid_paths.append(path + [vertex])
-                elif vertex not in path:  # new vertex
+                        valid_paths.append(path + [next_v])
+                elif next_v not in path:  # new vertex
                     i_searched += 1
-                    paths.appendleft([path + [vertex], weight_1])
-                else:  # forming cycle or dead
-                    print(path)
-                    # implementing N list (two method: init N_cycle first; working in DFS)
+                    if (next_edge in Y) and (next_edge in N):
+                        paths.appendleft([path + [next_v], weight_1, 
+                                         merge_dicts(Y_path, Y[next_edge]), 
+                                         merge_dicts(N_path, N[next_edge])])
+                    elif next_edge in Y:
+                        paths.appendleft([path + [next_v], weight_1, 
+                                         merge_dicts(Y_path, Y[next_edge]), 
+                                         N_path])
+                    elif next_edge in N:
+                        paths.appendleft([path + [next_v], weight_1, 
+                                         Y_path, 
+                                         merge_dicts(N_path, N[next_edge])])
+                    else:
+                        paths.appendleft([path + [next_v], weight_1, 
+                                         Y_path, N_path])
+    def merge_dicts(x, y):
+        """Given two dicts, merge them into a new dict as a shallow copy."""
+        z = x.copy()
+        z.update(y)
+        return z
 
     def check_path(path):
         """Check if path contains all vertices in v1."""
@@ -161,13 +219,13 @@ def trevize(G, s, t, v1, verbose):
 
         return sorted(weight_list, key=weight_list.get)
 
-    paths.appendleft([[s], 0])
+    init_N_list(G, N)
+    paths.appendleft([[s], 0, {}, {}])
     while paths:
         dfs(G, paths)
     print("added route:", i_searched)
     print("num of paths: {}".format(num_paths))
 
-    from pprint import pprint
     pprint(Y)
     pprint(N)
     pprint(valid_paths)
