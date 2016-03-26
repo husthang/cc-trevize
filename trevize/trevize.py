@@ -83,17 +83,44 @@ def trevize(G, s, t, v1, verbose):
     set_v1 = set(v1)
     global num_paths, max_weight
     valid_paths = []
+    # Y, N dict for edges
+    Y = {}
+    N = {}
     num_paths = 0
     BIG_WEIGHT = 4800
     max_weight = BIG_WEIGHT
+    global i_searched  # num of paths searched
+    i_searched = 0
 
     def dfs(G, paths):
-        """DFS search algorithm."""
-        global num_paths, max_weight
+        """DFS search algorithm.
+
+        element in the stack: (path, weight)
+            - path: list of vertices in the path"""
+        global num_paths, max_weight, i_searched
 
         path, weight = paths.popleft()
         end_vertex = path[-1]
+        if end_vertex is not s:
+            # must have >= 1 edge
+            end_edge = (path[-2], path[-1])
+            Y[end_edge] = {}  # todo
+            N[end_edge] = {}
         next_vertex_list = G[end_vertex]
+        if len(next_vertex_list) is 0:  # dead end
+            # del edge and end vertex
+            G.remove_node(end_vertex)
+            pass
+        elif len(next_vertex_list) is 1:  # Y list
+            # print(next_vertex_list)
+            for key in next_vertex_list:
+                next_vertex = key
+            next_edge = (end_vertex, next_vertex)
+            if end_vertex is not s:
+                if next_edge in N[end_edge]:  # forming cycle
+                    return
+                if next_edge not in Y[end_edge]:
+                    Y[end_edge][next_edge] = ""
 
         for vertex in sort_path(end_vertex, next_vertex_list):
             # print(vertex, G[end_vertex][vertex])
@@ -106,8 +133,11 @@ def trevize(G, s, t, v1, verbose):
                         num_paths += 1
                         valid_paths.append(path + [vertex])
                 elif vertex not in path:  # new vertex
+                    i_searched += 1
                     paths.appendleft([path + [vertex], weight_1])
-            # else: forming cycle or dead
+                else:  # forming cycle or dead
+                    print(path)
+                    # implementing N list (two method: init N_cycle first; working in DFS)
 
     def check_path(path):
         """Check if path contains all vertices in v1."""
@@ -120,23 +150,26 @@ def trevize(G, s, t, v1, verbose):
     def sort_path(vertex, next_list):
         """Sort next vertex list by V' first, then by weight."""
 
-        sorted_list = {}
-        for next_vertex in next_list:
-        # generate value list: add large num to vertices not in v1
+        weight_list = {}
+        for next_v in next_list:
+            # generate value list: add large num to vertices not in v1
             LARGE_NUM = 21
-            if next_vertex in v1:
-                sorted_list[next_vertex] = next_list[next_vertex]['weight']
+            if next_v in v1:
+                weight_list[next_v] = next_list[next_v]['weight']
             else:
-                sorted_list[next_vertex] = LARGE_NUM + next_list[next_vertex]['weight']
+                weight_list[next_v] = (next_list[next_v]['weight'] + LARGE_NUM)
 
-        return sorted(sorted_list, key=sorted_list.get)
+        return sorted(weight_list, key=weight_list.get)
 
     paths.appendleft([[s], 0])
     while paths:
         dfs(G, paths)
+    print("added route:", i_searched)
     print("num of paths: {}".format(num_paths))
 
     from pprint import pprint
+    pprint(Y)
+    pprint(N)
     pprint(valid_paths)
     if valid_paths:
         return valid_paths, G
@@ -202,16 +235,16 @@ def main():
     args = parser.parse_args()
     topo = open(args.topo)
     demand = open(args.demand)
-    # o = open(args.o, 'w')
+    o = open(args.o, 'w')
     verbose = args.verbose
 
     G, s, t, v1 = read_csv(topo, demand)
 
-    import time 
+    import time
     t0 = time.time()
     answer = trevize(G, s, t, v1, verbose)
-    #print(answer)
-    # write_csv(o, answer, format, verbose)
+    # print(answer)
+    write_csv(o, answer, 'all', verbose)
     t1 = time.time()
     print("time: {}".format(t1-t0))
 
