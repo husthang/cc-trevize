@@ -90,6 +90,7 @@ def trevize(G, s, t, v1, verbose):
     Y = {}
     Y_inv = {}  # inverse dict of Y
     N = {}
+    N_global = {}
     num_paths = 0
     BIG_WEIGHT = 4800
     max_weight = BIG_WEIGHT
@@ -99,7 +100,8 @@ def trevize(G, s, t, v1, verbose):
     def init_N_list(G, N):
         """Initialize N list by iterating nodes."""
         for node in G.nodes_iter():
-            if G.in_degree(node) > 1:
+            in_degree = G.in_degree(node)
+            if in_degree > 1:
                 pre_node_list = G.predecessors(node)
                 for i in range(len(pre_node_list)):
                     N[(pre_node_list[i], node)] = {}
@@ -107,6 +109,9 @@ def trevize(G, s, t, v1, verbose):
                         if j is not i:
                             N[(pre_node_list[i], node)]\
                              [(pre_node_list[j], node)] = ""
+            elif in_degree is 1:  # in_degree is 1
+                pre_node = G.predecessors(node)[0]
+                N[pre_node, node] = {}
 
     def dfs(G, paths):
         """DFS search algorithm.
@@ -132,7 +137,6 @@ def trevize(G, s, t, v1, verbose):
             # must have >= 1 edge
             end_edge = (path[-2], path[-1])
             Y[end_edge] = {}
-            N[end_edge] = {}
 
         next_v_list = G[end_vertex]
         if len(next_v_list) is 0:  # dead end
@@ -149,23 +153,21 @@ def trevize(G, s, t, v1, verbose):
                 if next_edge not in Y[end_edge]:
                     # adding edge to Y list (by extending inverse list)
                     Y[end_edge][next_edge] = ""
-                    # print("before merge",N[end_edge], N[next_edge])
                     N[end_edge] = merge_dicts(N[end_edge], N[next_edge])
-                    # print("after merge",N[end_edge])
                     Y_inv[next_edge] = {}
                     Y_inv[next_edge][end_edge] = ""
                     if end_edge in Y_inv:
                         for edge in Y_inv[end_edge]:
                             Y_inv[next_edge][edge] = ""
                             Y[edge][next_edge] = ""
+                            if next_edge in N[edge]:  
+                                # edge that must lead to WA
+                                G.remove_edge(edge[0], edge[1])
+                                N_global[edge] = ""
 
         for next_v in sort_path(end_vertex, next_v_list):
             # print(next_v, G[end_vertex][next_v])
-            next_edge = (end_vertex, next_v)
-            if next_edge in N_path:
-                # print(next_edge, "WE", N_path)
-                # wrong edge
-                continue
+
             weight_1 = weight + G[end_vertex][next_v]['weight']
             if weight_1 < max_weight:
                 if next_v is t:  # got sink
@@ -175,22 +177,41 @@ def trevize(G, s, t, v1, verbose):
                         num_paths += 1
                         valid_paths.append(path + [next_v])
                 elif next_v not in path:  # new vertex
-                    i_searched += 1
-                    if (next_edge in Y) and (next_edge in N):
+
+                    next_edge = (end_vertex, next_v)
+                    flag_Y = False
+                    flag_N = False
+                    if next_edge in Y:  # Y_path merge Y[next_edge]
+                        flag_Y = True
+                        Y_path1 = merge_dicts(Y_path, Y[next_edge])
+                        for edge in Y[next_edge]:
+                            N_path1 = merge_dicts(N_path, N[edge])
+                    if next_edge in N:  # N_path merge
+                        flag_N = True
+                        N_path1 = merge_dicts(N_path, N[next_edge])
+
+                    # if next edge in N_global and N_path, continue
+                    if next_edge in N_global:
+                        continue
+                    if next_edge in N_path:
+                        # print(next_edge, "WE", N_path)
+                        # wrong edge
+                        continue
+
+                    i_searched += 1  # add to stack
+                    if flag_Y and flag_N:
                         paths.appendleft([path + [next_v], weight_1, 
-                                         merge_dicts(Y_path, Y[next_edge]), 
-                                         merge_dicts(N_path, N[next_edge])])
-                    elif next_edge in Y:
+                                         Y_path1, N_path1])
+                    elif flag_Y:
                         paths.appendleft([path + [next_v], weight_1, 
-                                         merge_dicts(Y_path, Y[next_edge]), 
-                                         N_path])
-                    elif next_edge in N:
+                                         Y_path1, N_path])
+                    elif flag_N:
                         paths.appendleft([path + [next_v], weight_1, 
-                                         Y_path, 
-                                         merge_dicts(N_path, N[next_edge])])
+                                         Y_path, N_path1])
                     else:
                         paths.appendleft([path + [next_v], weight_1, 
                                          Y_path, N_path])
+
     def merge_dicts(x, y):
         """Given two dicts, merge them into a new dict as a shallow copy."""
         z = x.copy()
@@ -220,14 +241,16 @@ def trevize(G, s, t, v1, verbose):
         return sorted(weight_list, key=weight_list.get)
 
     init_N_list(G, N)
+    # pprint(N)
     paths.appendleft([[s], 0, {}, {}])
     while paths:
         dfs(G, paths)
     print("added route:", i_searched)
     print("num of paths: {}".format(num_paths))
 
-    pprint(Y)
+    # pprint(Y)
     pprint(N)
+    pprint(N_global)
     pprint(valid_paths)
     if valid_paths:
         return valid_paths, G
