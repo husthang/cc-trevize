@@ -357,7 +357,7 @@ void SearchRoute()
     double timeLimit = timeInterval;
 
     int costSum = 0;
-    g_totalCost = 1000;
+    g_totalCost = 1200;
 
     DEBUG("after search: definition\n");
     do
