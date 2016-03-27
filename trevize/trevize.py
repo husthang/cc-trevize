@@ -82,15 +82,17 @@ def trevize(G, s, t, v1, verbose):
     from copy import deepcopy
     from pprint import pprint
 
-    paths = deque()
+    paths = deque()  # use as stack for DFS
     set_v1 = set(v1)
-    global num_paths, max_weight
     valid_paths = []
+    
     # Y, N dict for edges
     Y = {}
     Y_inv = {}  # inverse dict of Y
     N = {}
     N_global = {}
+
+    global num_paths, max_weight
     num_paths = 0
     BIG_WEIGHT = 4800
     max_weight = BIG_WEIGHT
@@ -166,21 +168,21 @@ def trevize(G, s, t, v1, verbose):
                                 N_global[edge] = ""
 
         for next_v in sort_path(end_vertex, next_v_list):
-            # print(next_v, G[end_vertex][next_v])
-
             weight_1 = weight + G[end_vertex][next_v]['weight']
-            if weight_1 < max_weight:
-                if next_v is t:  # got sink
+            if weight_1 < max_weight:  # weight overflow
+                if next_v is t:  # reach sink, finish
                     if check_path(path + [next_v]):
-                        print(max_weight, weight_1)
+                        if verbose:
+                            print(max_weight, weight_1)
                         max_weight = weight_1
                         num_paths += 1
                         valid_paths.append(path + [next_v])
-                elif next_v not in path:  # new vertex
 
+                elif next_v not in path:  # new vertex
                     next_edge = (end_vertex, next_v)
                     flag_Y = False
                     flag_N = False
+
                     if next_edge in Y:  # Y_path merge Y[next_edge]
                         flag_Y = True
                         Y_path1 = merge_dicts(Y_path, Y[next_edge])
@@ -193,9 +195,7 @@ def trevize(G, s, t, v1, verbose):
                     # if next edge in N_global and N_path, continue
                     if next_edge in N_global:
                         continue
-                    if next_edge in N_path:
-                        # print(next_edge, "WE", N_path)
-                        # wrong edge
+                    if next_edge in N_path:  # wrong edge
                         continue
 
                     i_searched += 1  # add to stack
@@ -241,18 +241,21 @@ def trevize(G, s, t, v1, verbose):
         return sorted(weight_list, key=weight_list.get)
 
     init_N_list(G, N)
-    # pprint(N)
     paths.appendleft([[s], 0, {}, {}])
-    while paths:
-        dfs(G, paths)
-    print("added route:", i_searched)
-    print("num of paths: {}".format(num_paths))
 
-    # pprint(Y)
-    pprint(N)
-    pprint(N_global)
-    pprint(valid_paths)
-    if valid_paths:
+    while paths:  # DFS
+        dfs(G, paths)
+
+    if verbose:  # verbose printout
+        print("added route:", i_searched)
+        print("num of paths: {}".format(num_paths))
+        print("N_edge_pair:")
+        pprint(N)
+        print("N_global:")
+        pprint(N_global)
+        pprint(valid_paths)
+
+    if valid_paths:  # output
         return valid_paths, G
     else:
         if verbose:
