@@ -16,6 +16,7 @@
 # Dependencies: Python 3, NetworkX
 
 import networkx as nx
+import time
 
 
 def read_csv(g, stv1):
@@ -79,13 +80,12 @@ def trevize(G, s, t, v1, verbose):
     output: valid path list `valid_paths`
     """
     from collections import deque
-    from copy import deepcopy
     from pprint import pprint
 
     paths = deque()  # use as stack for DFS
     set_v1 = set(v1)
     valid_paths = []
-    
+
     # Y, N dict for edges
     Y = {}
     Y_inv = {}  # inverse dict of Y
@@ -162,7 +162,7 @@ def trevize(G, s, t, v1, verbose):
                         for edge in Y_inv[end_edge]:
                             Y_inv[next_edge][edge] = ""
                             Y[edge][next_edge] = ""
-                            if next_edge in N[edge]:  
+                            if next_edge in N[edge]:
                                 # edge that must lead to WA
                                 G.remove_edge(edge[0], edge[1])
                                 N_global[edge] = ""
@@ -173,7 +173,7 @@ def trevize(G, s, t, v1, verbose):
                 if next_v is t:  # reach sink, finish
                     if check_path(path + [next_v]):
                         if verbose:
-                            print(max_weight, weight_1)
+                            print(max_weight, weight_1, i_searched, time.time()-t0)
                         max_weight = weight_1
                         num_paths += 1
                         valid_paths.append(path + [next_v])
@@ -200,16 +200,16 @@ def trevize(G, s, t, v1, verbose):
 
                     i_searched += 1  # add to stack
                     if flag_Y and flag_N:
-                        paths.appendleft([path + [next_v], weight_1, 
+                        paths.appendleft([path + [next_v], weight_1,
                                          Y_path1, N_path1])
                     elif flag_Y:
-                        paths.appendleft([path + [next_v], weight_1, 
+                        paths.appendleft([path + [next_v], weight_1,
                                          Y_path1, N_path])
                     elif flag_N:
-                        paths.appendleft([path + [next_v], weight_1, 
+                        paths.appendleft([path + [next_v], weight_1,
                                          Y_path, N_path1])
                     else:
-                        paths.appendleft([path + [next_v], weight_1, 
+                        paths.appendleft([path + [next_v], weight_1,
                                          Y_path, N_path])
 
     def merge_dicts(x, y):
@@ -226,17 +226,42 @@ def trevize(G, s, t, v1, verbose):
         else:
             return False
 
-    def sort_path(vertex, next_list):
-        """Sort next vertex list by V' first, then by weight."""
+    def sort_path(vertex, next_list, iter_depth=0):
+        """Sort next vertex list by V' first, then by weight.
+
+        iter_depth:
+            - 0: iterating for one more layer and find best
+            - 1: find weight
+        """
 
         weight_list = {}
         for next_v in next_list:
             # generate value list: add large num to vertices not in v1
             LARGE_NUM = 21
+            if next_v is t:
+                weight_list[next_v] = 0
             if next_v in v1:
                 weight_list[next_v] = next_list[next_v]['weight']
+                if iter_depth is 0:
+                    nn_v_list = G[next_v]
+                    if nn_v_list:
+                        nn_weight = sort_path(next_v, nn_v_list, 1)[0]
+                        # least weight from nn_v_list
+                        weight_list[next_v] = (next_list[next_v]['weight'] +
+                                               nn_weight)
+                else:
+                    weight_list[next_v] = (next_list[next_v]['weight'])
             else:
-                weight_list[next_v] = (next_list[next_v]['weight'] + LARGE_NUM)
+                if iter_depth is 0:
+                    nn_v_list = G[next_v]
+                    if nn_v_list:
+                        # print(next_v, nn_v_list)
+                        nn_weight = sort_path(next_v, nn_v_list, 1)[0]
+                        weight_list[next_v] = (next_list[next_v]['weight'] +
+                                               nn_weight + LARGE_NUM)
+                else:
+                    weight_list[next_v] = (next_list[next_v]['weight'] +
+                                           LARGE_NUM)
 
         return sorted(weight_list, key=weight_list.get)
 
@@ -325,6 +350,7 @@ def main():
     G, s, t, v1 = read_csv(topo, demand)
 
     import time
+    global t0
     t0 = time.time()
     answer = trevize(G, s, t, v1, verbose)
     # print(answer)
