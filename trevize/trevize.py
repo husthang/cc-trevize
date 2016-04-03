@@ -144,13 +144,6 @@ def trevize(G, s, t, v1, verbose):
 
         # end vertex and new edge
         end_vertex = path[-1]
-        if end_vertex is not s:
-            # must have >= 1 edge
-            end_edge = (path[-2], path[-1])
-            # if end_edge not in Y:
-            #     Y[end_edge] = {}
-            # if end_edge not in N:
-            #     N[end_edge] = {}
 
         next_v_list = G[end_vertex]
         if len(next_v_list) is 0:  # dead end
@@ -162,7 +155,6 @@ def trevize(G, s, t, v1, verbose):
         for next_v in sort_path(end_vertex, next_v_list):
             weight_1 = weight + G[end_vertex][next_v]['weight']
             if weight_1 < max_weight:  # weight not overflow
-                next_edge = (end_vertex, next_v)
                 if next_v in searched:
                     if next_v in cleared:  # cleared: no need to search again
                         for path_vt in found_path[next_v]:
@@ -179,28 +171,34 @@ def trevize(G, s, t, v1, verbose):
                                 continue
                             else:
                                 # print('s-v-t', path, path_vt)
-                                if cal_path_weight(path + path_vt + [t]) >= max_weight:
+                                if cal_path_weight(path + path_vt + [t]) >=\
+                                        max_weight:
                                     continue
                                 if check_path(path + path_vt + [t]):
                                     # print('find path')
                                     if verbose:
                                         print(max_weight, weight_1,
                                               i_searched, time.time() - t0)
-                                    max_weight = cal_path_weight(path + path_vt + [t])  # todo
+                                    max_weight = cal_path_weight(path +
+                                                                 path_vt + [t])
                                     num_paths += 1
                                     valid_paths.append(path + [next_v])
                                     continue
                                 else:  # WA, add DP information
                                     # continue
                                     for i in range(len(path)):
-                                    # add a func here to update best paths from i to sink(t)
+                                    # add a func here to
+                                    # update best paths from i to sink(t)
                                     # sorting maybe needed
                                         path_i = path[i:] + path_vt
                                         if dup_in_list(path[i:], path_vt):
                                             continue
-                                        num_v1 = num_ele_in_dict(path[i:], dict_v1)
-                                        if (num_v1, path_i) not in found_path[path[i]]:
-                                            found_path[path[i]].append((num_v1, path_i))
+                                        num_v1 = num_ele_in_dict(path[i:],
+                                                                 dict_v1)
+                                        if (num_v1, path_i) not in\
+                                                found_path[path[i]]:
+                                            found_path[path[i]]\
+                                                .append((num_v1, path_i))
                         continue
                     else:  # in cycle
                         # continue
@@ -214,9 +212,10 @@ def trevize(G, s, t, v1, verbose):
                                 # print(num_v1_sv + num_v1_vt, LENGTH_v1)
                                 continue
                             else:
-                                if cal_path_weight(path + path_vt + [t]) >= max_weight:
+                                if cal_path_weight(path + path_vt + [t]) >=\
+                                        max_weight:
                                     continue
-                                if (not dup_in_list(path, path_vt) and 
+                                if (not dup_in_list(path, path_vt) and
                                     check_path(path + path_vt + [t])):
                                     # AC
                                     # print('find path')
@@ -224,23 +223,30 @@ def trevize(G, s, t, v1, verbose):
                                     if verbose:
                                         print(max_weight, weight_1,
                                               i_searched, time.time() - t0)
-                                    max_weight = cal_path_weight(path + path_vt + [t])  # todo
+                                    max_weight = cal_path_weight(path + \
+                                                                 path_vt + [t])
                                     num_paths += 1
-                                    valid_paths.append(path[:] + path_vt[:] + [t])
+                                    valid_paths.append(path[:] +
+                                                       path_vt[:] + [t])
                                     # continue
                                 else:  # WA, add DP information
                                     # continue
                                     for i in range(len(path)):
-                                    # add a func here to update best paths from i to sink(t)
-                                    # sorting maybe needed
+                                        # todo: add a func to update
+                                        # best paths from i to sink(t)
+                                        # sorting maybe needed
                                         path_i = path[i:] + path_vt
                                         if dup_in_list(path, path_vt):
                                             continue
-                                        if cal_path_weight(path + path_vt) >= max_weight:
+                                        if cal_path_weight(path + path_vt) >=\
+                                                max_weight:
                                             continue
-                                        num_v1 = num_ele_in_dict(path[i:], dict_v1)
-                                        if (num_v1, path_i) not in found_path[path[i]]:
-                                            found_path[path[i]].append((num_v1, path_i))
+                                        num_v1 = num_ele_in_dict(path[i:],
+                                                                 dict_v1)
+                                        if (num_v1, path_i) not in\
+                                                found_path[path[i]]:
+                                            found_path[path[i]]\
+                                                .append((num_v1, path_i))
                         for path_vc in found_cycle[next_v]:
                             # print(found_cycle[next_v])
                             num_v1_vc, path_vc = path_vc  # unpack
@@ -253,7 +259,7 @@ def trevize(G, s, t, v1, verbose):
                                 i_searched += 1
                                 paths.appendleft([combined_path, weight_cp])
                         continue
-                
+
                 # vertex is not searched
                 if next_v is t:  # reach sink, finish
                     if check_path(path + [next_v]):  # AC
@@ -287,7 +293,8 @@ def trevize(G, s, t, v1, verbose):
                         cycle[vertex] = True
                     cycle[next_v] = True
                     index_next_v = path.index(next_v)
-                    for i in range(index_next_v, len(path)):  # update found_cycle
+                    for i in range(index_next_v, len(path)):
+                        # update found_cycle
                         # print(path[i:])
                         num_v1 = num_ele_in_dict(path[i:], dict_v1)
                         if (num_v1, path[i:]) not in found_cycle[path[i]]:
@@ -417,10 +424,10 @@ def trevize(G, s, t, v1, verbose):
             #     print(path[0], path[1])
             # print('dq end')
             print('len of deque', len(paths))
-            index_shortest = find_shortest_path(paths)
-            temp_shortest = paths[index_shortest]
-            del paths[index_shortest]
-            paths.appendleft(temp_shortest)
+            # index_shortest = find_shortest_path(paths)
+            # temp_shortest = paths[index_shortest]
+            # del paths[index_shortest]
+            # paths.appendleft(temp_shortest)
             # print(searched)
             # for v in found_path:
             #     print(v, len(found_path[v]), end=';   ')
