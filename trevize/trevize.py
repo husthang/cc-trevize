@@ -91,37 +91,24 @@ def trevize(G, s, t, v1, verbose):
     valid_paths = []
 
     # found path for DP
-    # vertex:value dict
+    # vertex:value dict for fast(?) hashing
     global last_path  # stack diff to find vertices searched.
-    searched = {}
-    found_path = {}
+    searched = {}   # searched by DFS (may be not exclusively)
+    cycle = {}  # flag dict for cycle
+    cleared = {}  # store cleared vertices (DFS exclusively)
+    found_path = {}  # store v-t
     for i in G.nodes_iter():
         found_path[i] = []
-    cycle = {}  # flag for cycle
-    cleared = {}  # storing cleared vertices
+    found_cycle = {}  # store v-cycle
+    for i in G.nodes_iter():
+        found_cycle[i] = []
 
     global num_paths, max_weight
     num_paths = 0
-    BIG_WEIGHT = 4800
+    BIG_WEIGHT = 12000  # 600*20
     max_weight = BIG_WEIGHT
     global i_searched  # num of paths searched
     i_searched = 0
-
-    def init_N_list(G, N):
-        """Initialize N list by iterating nodes."""
-        for node in G.nodes_iter():
-            in_degree = G.in_degree(node)
-            if in_degree > 1:
-                pre_node_list = G.predecessors(node)
-                for i in range(len(pre_node_list)):
-                    N[(pre_node_list[i], node)] = {}
-                    for j in range(len(pre_node_list)):
-                        if j is not i:
-                            N[(pre_node_list[i], node)]\
-                             [(pre_node_list[j], node)] = ""
-            elif in_degree is 1:  # in_degree is 1
-                pre_node = G.predecessors(node)[0]
-                N[pre_node, node] = {}
 
     def dfs(G, paths):
         """DFS search algorithm.
@@ -173,49 +160,102 @@ def trevize(G, s, t, v1, verbose):
             if len(path) >= 2:
                 G.remove_edge((path[-2],path[-1]))
 
-        elif len(next_v_list) is 1:
-            # only one outdegree: add to Y-pair list
-            # print(next_v_list)
-            for key in next_v_list:
-                next_v = key
-            next_edge = (end_vertex, next_v)  # the only out-edge
-
         for next_v in sort_path(end_vertex, next_v_list):
             weight_1 = weight + G[end_vertex][next_v]['weight']
             if weight_1 < max_weight:  # weight not overflow
                 next_edge = (end_vertex, next_v)
-
-                if next_v in cleared:  # cleared: no need to search again
-                    for path_vt in found_path[next_v]:
-                        # print(path, path_vt)
-                        num_v1_vt, path_vt = path_vt  # unpack
-                        num_v1_sv = num_ele_in_dict(path, dict_v1)
-                        if num_v1_sv + num_v1_vt is not LENGTH_v1:
-                            # print('s-v-t', path, path_vt + [t])
-                            # print(num_v1_sv + num_v1_vt, LENGTH_v1)
-                            continue
-                        else:
-                            # print('s-v-t', path, path_vt)
-                            if check_path(path + path_vt + [t]):
-                                # print('find path')
-                                if verbose:
-                                    print(max_weight, weight_1,
-                                          i_searched, time.time() - t0)
-                                # max_weight = weight_1  # todo
-                                num_paths += 1
-                                valid_paths.append(path + [next_v])
+                if next_v in searched:
+                    if next_v in cleared:  # cleared: no need to search again
+                        for path_vt in found_path[next_v]:
+                            # print(path, path_vt)
+                            num_v1_vt, path_vt = path_vt  # unpack
+                            if dup_in_list(path, path_vt):
+                                # duplicate in lists, cycle
                                 continue
-                            else:  # WA, add DP information
-                                # continue
-                                for i in range(len(path)):
-                                # add a func here to update best paths from i to sink(t)
-                                # sorting maybe needed
-                                    path_i = path[i:] + path_vt
-                                    num_v1 = num_ele_in_dict(path[i:], dict_v1)
-                                    if (num_v1, path_i) not in found_path[path[i]]:
-                                        found_path[path[i]].append((num_v1, path_i))
-                    continue
-
+                            num_v1_sv = num_ele_in_dict(path, dict_v1)
+                            if num_v1_sv + num_v1_vt is not LENGTH_v1:
+                                # not enough v1
+                                # print('s-v-t', path, path_vt + [t])
+                                # print(num_v1_sv + num_v1_vt, LENGTH_v1)
+                                continue
+                            else:
+                                # print('s-v-t', path, path_vt)
+                                if cal_path_weight(path + path_vt + [t]) >= max_weight:
+                                    continue
+                                if check_path(path + path_vt + [t]):
+                                    # print('find path')
+                                    if verbose:
+                                        print(max_weight, weight_1,
+                                              i_searched, time.time() - t0)
+                                    max_weight = cal_path_weight(path + path_vt + [t])  # todo
+                                    num_paths += 1
+                                    valid_paths.append(path + [next_v])
+                                    continue
+                                else:  # WA, add DP information
+                                    # continue
+                                    for i in range(len(path)):
+                                    # add a func here to update best paths from i to sink(t)
+                                    # sorting maybe needed
+                                        path_i = path[i:] + path_vt
+                                        if dup_in_list(path[i:], path_vt):
+                                            continue
+                                        num_v1 = num_ele_in_dict(path[i:], dict_v1)
+                                        if (num_v1, path_i) not in found_path[path[i]]:
+                                            found_path[path[i]].append((num_v1, path_i))
+                        continue
+                    else:  # in cycle
+                        # continue
+                        for path_vt in found_path[next_v]:
+                            # pprint(found_path[next_v])
+                            # print(path, path_vt)
+                            num_v1_vt, path_vt = path_vt  # unpack
+                            num_v1_sv = num_ele_in_dict(path, dict_v1)
+                            if num_v1_sv + num_v1_vt is not LENGTH_v1:
+                                # print('s-v-t', path, path_vt + [t])
+                                # print(num_v1_sv + num_v1_vt, LENGTH_v1)
+                                continue
+                            else:
+                                if cal_path_weight(path + path_vt + [t]) >= max_weight:
+                                    continue
+                                if (not dup_in_list(path, path_vt) and 
+                                    check_path(path + path_vt + [t])):
+                                    # AC
+                                    # print('find path')
+                                    # print('s-v-t', path, path_vt)
+                                    if verbose:
+                                        print(max_weight, weight_1,
+                                              i_searched, time.time() - t0)
+                                    max_weight = cal_path_weight(path + path_vt + [t])  # todo
+                                    num_paths += 1
+                                    valid_paths.append(path[:] + path_vt[:] + [t])
+                                    # continue
+                                else:  # WA, add DP information
+                                    # continue
+                                    for i in range(len(path)):
+                                    # add a func here to update best paths from i to sink(t)
+                                    # sorting maybe needed
+                                        path_i = path[i:] + path_vt
+                                        if dup_in_list(path, path_vt):
+                                            continue
+                                        if cal_path_weight(path + path_vt) >= max_weight:
+                                            continue
+                                        num_v1 = num_ele_in_dict(path[i:], dict_v1)
+                                        if (num_v1, path_i) not in found_path[path[i]]:
+                                            found_path[path[i]].append((num_v1, path_i))
+                        for path_vc in found_cycle[next_v]:
+                            # print(found_cycle[next_v])
+                            num_v1_vc, path_vc = path_vc  # unpack
+                            if dup_in_list(path, path_vc):  # duplicate
+                                continue
+                            else:  # add to stack
+                                # print('add to stack')
+                                combined_path = path[:] + path_vc[:]
+                                weight_cp = cal_path_weight(combined_path)
+                                i_searched += 1
+                                paths.appendleft([combined_path, weight_cp])
+                        continue
+                
+                # vertex is not searched
                 if next_v is t:  # reach sink, finish
                     if check_path(path + [next_v]):  # AC
                         if verbose:
@@ -223,7 +263,7 @@ def trevize(G, s, t, v1, verbose):
                                   i_searched, time.time() - t0)
                         max_weight = weight_1
                         num_paths += 1
-                        valid_paths.append(path + [next_v])
+                        valid_paths.append(path[:] + [next_v])
                         continue
                     else:  # WA, add DP information
                         # continue
@@ -244,10 +284,15 @@ def trevize(G, s, t, v1, verbose):
                             #         found_path[v] = num_v1
 
                 elif next_v in path:  # next_v in the path: forming cycle
-                    for vertex in path:
+                    for vertex in path:  # update cycle flag
                         cycle[vertex] = True
                     cycle[next_v] = True
-                    continue
+                    index_next_v = path.index(next_v)
+                    for i in range(index_next_v, len(path)):  # update found_cycle
+                        # print(path[i:])
+                        num_v1 = num_ele_in_dict(path[i:], dict_v1)
+                        if (num_v1, path[i:]) not in found_cycle[path[i]]:
+                            found_cycle[path[i]].append((num_v1, path[i:]))
 
                 else:  # new vertex in the path, add to stack
                     i_searched += 1  # add to stack
@@ -262,15 +307,12 @@ def trevize(G, s, t, v1, verbose):
         # return {**x, **y}
 
     def check_path(path):
-        """Check if path contains all vertices in v1.
-
-        - check duplicates
-        - find v1 elements
-        """
-        if len(set(path)) is len(path):
-            if set_v1 <= set(path[1:-1]):
+        """Check if path contains all vertices in v1."""
+        if set_v1 <= set(path[1:-1]):
+            if path not in valid_paths:
                 return True
-        return False  # has duplicates or v1 not all in path: return false
+        else:
+            return False
 
     def sort_path(vertex, next_list, iter_depth=0):
         """Sort next vertex list by V' first, then by weight.
@@ -322,11 +364,26 @@ def trevize(G, s, t, v1, verbose):
                 num += 1
         return num
 
+    def dup_in_list(list1, list2):
+        """Check if any duplicates in the two list."""
+        combined = list1[:] + list2[:]
+        if len(set(combined)) is len(combined):
+            return False  # no duplicates
+        else:
+            return True
+
     def add_cycle(path, d_add):
         """Add vertices in path dict d_add."""
         for v in path:
             d_add[v] = True
         return
+
+    def cal_path_weight(path):
+        """Calculate path weight."""
+        path_weight = 0
+        for i in range(len(path) - 1):
+            path_weight += G[path[i]][path[i+1]]['weight']
+        return path_weight
 
     last_path = [s]
     # init_N_list(G, N)
@@ -338,8 +395,8 @@ def trevize(G, s, t, v1, verbose):
         # for path in paths:
         #     print(path)
         # print('dq end')
-        # input(s)  # check stack
-        if verbose and (i_searched % 10000 is 0):
+        # # input(s)  # check stack
+        if verbose and (i_searched % 20000 is 0):
             print(i_searched, time.time() - t0)
             for path in paths:
                 print(path[0], path[1])
@@ -347,15 +404,18 @@ def trevize(G, s, t, v1, verbose):
             print(searched)
             print(cycle)
             print(valid_paths)
+            # break
+
 
     if verbose:  # verbose printout
         print("added route:", i_searched)
         print("num of paths: {}".format(num_paths))
-        pprint(valid_paths)
-        print("found_path:")
-        #pprint(found_path)
-        print("cycle:")
-        pprint(cycle)
+        # pprint(valid_paths)
+        # print("found_path:")
+        # pprint(found_path)
+        # print("cycle:")
+        # pprint(cycle)
+        # pprint(found_cycle)
 
     if valid_paths:  # output
         return valid_paths, G
@@ -438,11 +498,11 @@ def main():
     return 0
 
 if __name__ == '__main__':
-    main()
+    # main()
 
-    # import cProfile
-    # cProfile.run('main()', 'restats')
+    import cProfile
+    cProfile.run('main()', 'restats')
 
-    # import pstats
-    # p = pstats.Stats('restats')
-    # p.sort_stats('cumulative').print_stats(20)
+    import pstats
+    p = pstats.Stats('restats')
+    p.sort_stats('cumulative').print_stats(20)
