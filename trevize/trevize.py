@@ -138,7 +138,7 @@ def trevize(G, s, t, v1, verbose):
                 searched[vertex] = True
                 if vertex not in cycle:
                     cleared[vertex] = True
-                # print('{} is searched.'.format(last_path[i]))
+                    # print('{} is cleared'.format(vertex))
 
         last_path = path[:]  # update global last path
 
@@ -260,6 +260,41 @@ def trevize(G, s, t, v1, verbose):
                                 paths.appendleft([combined_path, weight_cp])
                         continue
 
+
+                if next_v in cleared:  # cleared: no need to search again
+                    for path_vt in found_path[next_v]:
+                        # print(path, path_vt)
+                        num_v1_vt, path_vt = path_vt  # unpack
+                        num_v1_sv = num_ele_in_dict(path, dict_v1)
+                        if num_v1_sv + num_v1_vt is not LENGTH_v1:
+                            # print('s-v-t', path, path_vt + [t])
+                            # print(num_v1_sv + num_v1_vt, LENGTH_v1)
+                            continue
+                        else:
+                            # print('s-v-t', path, path_vt)
+                            if check_path(path + path_vt + [t]):
+                                # print('find path')
+                                if verbose:
+                                    print(max_weight, weight_1,
+                                          i_searched, time.time() - t0)
+                                # max_weight = weight_1  # todo
+                                num_paths += 1
+                                valid_paths.append(path + [next_v])
+                                continue
+                            else:  # WA, add DP information
+                                # continue
+                                for i in range(len(path)):
+                                # add a func here to update best paths
+                                # from i to sink(t)
+                                # sorting maybe needed
+                                    path_i = path[i:] + path_vt
+                                    num_v1 = num_ele_in_dict(path[i:], dict_v1)
+                                    if (num_v1, path_i) not in \
+                                            found_path[path[i]]:
+                                        found_path[path[i]]\
+                                            .append((num_v1, path_i))
+                    continue
+
                 # vertex is not searched
                 if next_v is t:  # reach sink, finish
                     if check_path(path + [next_v]):  # AC
@@ -299,6 +334,7 @@ def trevize(G, s, t, v1, verbose):
                         num_v1 = num_ele_in_dict(path[i:], dict_v1)
                         if (num_v1, path[i:]) not in found_cycle[path[i]]:
                             found_cycle[path[i]].append((num_v1, path[i:]))
+                    continue
 
                 else:  # new vertex in the path, add to stack
                     i_searched += 1  # add to stack
@@ -439,8 +475,6 @@ def trevize(G, s, t, v1, verbose):
             print(valid_paths)
             # break
 
-
-
     if verbose:  # verbose printout
         print("added route:", i_searched)
         print("num of paths: {}".format(num_paths))
@@ -450,6 +484,9 @@ def trevize(G, s, t, v1, verbose):
         # print("cycle:")
         # pprint(cycle)
         pprint(found_cycle)
+        #pprint(found_path)
+        print("cycle:")
+        pprint(cycle)
 
     if valid_paths:  # output
         return valid_paths, G
