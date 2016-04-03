@@ -138,7 +138,6 @@ def trevize(G, s, t, v1, verbose):
                 searched[vertex] = True
                 if vertex not in cycle:
                     cleared[vertex] = True
-                    print('{} is cleared'.format(vertex))
                 # print('{} is searched.'.format(last_path[i]))
 
         last_path = path[:]  # update global last path
@@ -385,10 +384,23 @@ def trevize(G, s, t, v1, verbose):
             path_weight += G[path[i]][path[i+1]]['weight']
         return path_weight
 
+    def find_shortest_path(deque):
+        """Find shortest path in deque."""
+        min_length = 600
+        min_index = 0
+        for i in range(len(deque) - 1, -1, -1):
+            len_path, weight = deque[i]
+            if len(len_path) < min_length:
+                min_length = len(len_path)
+                min_index = i
+        print(deque[min_index])
+        return min_index
+
     last_path = [s]
     # init_N_list(G, N)
     paths.appendleft([[s], 0])
     # print(paths)
+    i = 1
     while paths:  # DFS
         dfs(G, paths)
         # print('deque')
@@ -396,26 +408,41 @@ def trevize(G, s, t, v1, verbose):
         #     print(path)
         # print('dq end')
         # # input(s)  # check stack
-        if verbose and (i_searched % 20000 is 0):
+
+        if verbose and (i_searched / 1000 > i):
+            i += 1
+            paths.reverse()
             print(i_searched, time.time() - t0)
-            for path in paths:
-                print(path[0], path[1])
-            print('dq end')
-            print(searched)
-            print(cycle)
+            # for path in paths:
+            #     print(path[0], path[1])
+            # print('dq end')
+            print('len of deque', len(paths))
+            index_shortest = find_shortest_path(paths)
+            temp_shortest = paths[index_shortest]
+            del paths[index_shortest]
+            paths.appendleft(temp_shortest)
+            # print(searched)
+            # for v in found_path:
+            #     print(v, len(found_path[v]), end=';   ')
+            # print()
+            # for v in found_cycle:
+            #     print(v, len(found_cycle[v]), end=';    ')
+            # print()
+            # print(cycle)
             print(valid_paths)
             # break
+
 
 
     if verbose:  # verbose printout
         print("added route:", i_searched)
         print("num of paths: {}".format(num_paths))
         # pprint(valid_paths)
-        # print("found_path:")
-        # pprint(found_path)
+        print("found_path:")
+        pprint(found_path)
         # print("cycle:")
         # pprint(cycle)
-        # pprint(found_cycle)
+        pprint(found_cycle)
 
     if valid_paths:  # output
         return valid_paths, G
@@ -498,11 +525,11 @@ def main():
     return 0
 
 if __name__ == '__main__':
-    # main()
+    main()
 
-    import cProfile
-    cProfile.run('main()', 'restats')
+    # import cProfile
+    # cProfile.run('main()', 'restats')
 
-    import pstats
-    p = pstats.Stats('restats')
-    p.sort_stats('cumulative').print_stats(20)
+    # import pstats
+    # p = pstats.Stats('restats')
+    # p.sort_stats('cumulative').print_stats(20)
