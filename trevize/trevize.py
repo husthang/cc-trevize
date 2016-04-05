@@ -159,7 +159,7 @@ def trevize(G, s, t, v1, verbose):
         return z
 
     def check_path(path):
-        """Check if path contains all vertices in v1."""
+        """Check if path con tains all vertices in v1."""
         if set_v1 <= set(path[1:-1]):
             # print('find path:', path)
             return True
@@ -187,6 +187,7 @@ def trevize(G, s, t, v1, verbose):
     valid_paths = []
     preds = {}
     succs = {}
+    links = {}  # (vi, vj): [path1, path2, ...]
 
     global num_paths, max_weight
     num_paths = 0
@@ -200,24 +201,69 @@ def trevize(G, s, t, v1, verbose):
     pprint(preds)
     pprint(succs)
 
+    def check_path_between(v1_n, n_v2):
+        """Check if path  of v1->n and n->v2 can be merged.
+
+        input: v1_n, n_v2: list of path.
+        output: return True if the path is valid.
+        """
+        if set(v1_n) & set(n_v2) == set([n_v2[0]]):  # intersection is only n
+            return True
+        else:
+            return False
+
+    def merge_v1():
+        """Merge (vi, vj)."""
+        pass
+
+    def add_link(v_out, v_in, p_out=[], p_in=[]):
+        if not p_out:
+            p_out = [v_out]
+        if p_in:
+            p_in = p_in[1:]
+        else:
+            p_in = [v_in]
+        if (v_out, v_in) in links:
+            links[(v_out, v_in)] += [p_out + p_in]
+        else:
+            links[(v_out, v_in)] = [p_out + p_in]
+
+
+    def find_links(v_out, v_in, depth_out, depth_in):
+        """Find demanded links of (vi, vj)."""
+        for v_succ in succs[v_out][depth_out]:
+            if v_succ in preds[v_in][depth_in]:
+                paths_out = succs[v_out][depth_out][v_succ]
+                paths_in = preds[v_in][depth_in][v_succ]
+                for p_out in paths_out:
+                    for p_in in paths_in:
+                        if check_path_between(p_out, p_in):
+                            add_link(v_out, v_in, p_out, p_in)
+
+
+    for v in succs:  # find 1-layer links
+        for v_succ in succs[v][1]:
+            if v_succ in set_v1 or v_succ is t:
+                print('direct link of {0}->{1}.'.format(v, v_succ))
+                add_link(v, v_succ)
+
+    pprint(links)
+
+    get_v_layer(s, 3, 'out')
+    get_v_layer(t, 3, 'in')
     for v in v1:
-        iter_layer(v, 2, 'in')
-        iter_layer(v, 2, 'out')
-    pprint(preds)
+        get_v_layer(v, 3, 'in')
+        get_v_layer(v, 3, 'out')
+
     pprint(succs)
+    pprint(preds)
 
-    v = v1[0]
 
-    get_v_layer(v, 1, 'in')
-    pprint(preds[v])
-    get_v_layer(v, 5, 'in')
-    pprint(preds[v])
+    for vi in preds:
+        for vj in succs:
+            find_links(vj, vi, 3, 2)
 
-    get_v_layer(v, 5, 'in')
-    pprint(succs[v])
-
-    get_v_layer(v, 9, 'out')
-    pprint(succs[v])
+    pprint(links)
 
     if verbose:  # verbose printout
         print("added route:", i_searched)
