@@ -17,7 +17,6 @@
 
 import networkx as nx
 
-
 def read_csv(g, stv1):
     """Read the two cs v input files.
 
@@ -78,67 +77,80 @@ def trevize(G, s, t, v1, verbose):
         - sort edges before adding to deque as a stack
     output: valid path list `valid_paths`
     """
-    # from collections import deque
-    from pprint import pprint
+    def init_globals(s, t, v1):
+        """Init preds, succs of first layer.
 
-    global preds, succs
-    set_v1 = set(v1)
-    valid_paths = []
-    preds = {}
-    succs = {}
-    # store as vertex: {depth: {end_vertex: [list of paths]}}
-
-    print(v1)
-    global num_paths, max_weight
-    num_paths = 0
-    BIG_WEIGHT = 4800
-    max_weight = BIG_WEIGHT
-    global i_searched  # num of paths searched
-    i_searched = 0
-
-    for v in v1:
-        preds[v] = {0: {}}
-        succs[v] = {0: {}}
-
-        for v_pred in G.predecessors_iter(v):
-            preds[v][0][v_pred] = [[v_pred]]
-        for v_succ in G.successors_iter(v):
-            succs[v][0][v_succ] = [[v_succ]]
-    pprint(preds)
-    pprint(succs)
+        store as vertex: {depth: {end_vertex: [list of paths]}}
+        vertices in preds: v in v1 and t.
+        vertices in succs: v in v1 and s."""
+        # init s, t
+        succs[s] = {1: {}}
+        preds[t] = {1: {}}
+        for v_pred in G.predecessors_iter(t):
+            preds[t][1][v_pred] = [[v_pred, t]]
+        for v_succ in G.successors_iter(s):
+            succs[s][1][v_succ] = [[s, v_succ]]
+        # init v in v1
+        for v in v1:
+            preds[v] = {1: {}}
+            succs[v] = {1: {}}
+            for v_pred in G.predecessors_iter(v):
+                preds[v][1][v_pred] = [[v_pred, v]]
+            for v_succ in G.successors_iter(v):
+                succs[v][1][v_succ] = [[v, v_succ]]
 
     def iter_layer(v, depth, direction='in'):
-        """Iterate one more layer of predecessors/successors.
+        """Iterate one more layer of predecessors/successors BFS.
 
         add one more vertex to begin/end of paths."""
         if direction is 'in':
             preds[v][depth] = {}
             for end_vertex in preds[v][depth - 1]:
+                if end_vertex in set_v1:  # set is hashable, faster than list
+                    continue
                 for end_path in preds[v][depth - 1][end_vertex]:
                     for v_pred in G.predecessors_iter(end_vertex):
-                        if v_pred not in preds[v][depth]:
-                            preds[v][depth][v_pred] =\
-                                [[v_pred] + end_path]
-                        else:
-                            preds[v][depth][v_pred] +=\
-                                [[v_pred] + end_path]
-        else:  # out, successors
+                        if v_pred not in end_path:
+                            if v_pred not in preds[v][depth]:
+                                preds[v][depth][v_pred] =\
+                                    [[v_pred] + end_path]
+                            else:
+                                preds[v][depth][v_pred] +=\
+                                    [[v_pred] + end_path]
+        elif direction is 'out':  # out, successors
             succs[v][depth] = {}
             for end_vertex in succs[v][depth - 1]:
+                if end_vertex in set_v1:
+                    continue
                 for end_path in succs[v][depth - 1][end_vertex]:
                     for v_succ in G.successors_iter(end_vertex):
-                        if v_succ not in succs[v][depth]:
-                            succs[v][depth][v_succ] =\
-                                [end_path + [v_succ]]
-                        else:
-                            succs[v][depth][v_succ] +=\
-                                [end_path + [v_succ]]
+                        if v_succ not in end_path:
+                            if v_succ not in succs[v][depth]:
+                                succs[v][depth][v_succ] =\
+                                    [end_path + [v_succ]]
+                            else:
+                                succs[v][depth][v_succ] +=\
+                                    [end_path + [v_succ]]
+        else:
+            return 1
 
-    for v in v1:
-        iter_layer(v, 1, 'in')
-        iter_layer(v, 1, 'out')
-    pprint(preds)
-    pprint(succs)
+    def get_v_layer(v, depth, direction):
+        """Wrapper to get demanded layer of in/out BFS.
+
+        - direction: 'in', 'out'
+        """
+        if direction is 'in':
+            global_dict = preds
+        elif direction is 'out':
+            global_dict = succs
+        else:  # wrong direction
+            return 1
+        for i_depth in range(depth, 0, -1):
+            if i_depth in global_dict[v]:
+                layers_to_cal = list(range(i_depth + 1, depth + 1))
+                for layer in layers_to_cal:
+                    iter_layer(v, layer, direction)
+                return
 
     def merge_dicts(x, y):
         """Given two dicts, merge them into a new dict as a shallow copy."""
@@ -168,7 +180,44 @@ def trevize(G, s, t, v1, verbose):
 
         return sorted(weight_list, key=weight_list.get)
 
+    # from collections import deque
+    from pprint import pprint
 
+    set_v1 = set(v1)
+    valid_paths = []
+    preds = {}
+    succs = {}
+
+    global num_paths, max_weight
+    num_paths = 0
+    BIG_WEIGHT = 4800
+    max_weight = BIG_WEIGHT
+    global i_searched  # num of paths searched
+    i_searched = 0
+    print("V':", v1)
+
+    init_globals(s, t, v1)
+    pprint(preds)
+    pprint(succs)
+
+    for v in v1:
+        iter_layer(v, 2, 'in')
+        iter_layer(v, 2, 'out')
+    pprint(preds)
+    pprint(succs)
+
+    v = v1[0]
+
+    get_v_layer(v, 1, 'in')
+    pprint(preds[v])
+    get_v_layer(v, 5, 'in')
+    pprint(preds[v])
+
+    get_v_layer(v, 5, 'in')
+    pprint(succs[v])
+
+    get_v_layer(v, 9, 'out')
+    pprint(succs[v])
 
     if verbose:  # verbose printout
         print("added route:", i_searched)
