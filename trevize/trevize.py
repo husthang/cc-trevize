@@ -194,6 +194,7 @@ def trevize(G, s, t, v1, verbose):
     preds = {}
     succs = {}
     links = {}  # (vi, vj): [path1, path2, ...]
+    wrong_set = set([])  # DP all wrong paths
 
     global num_paths, max_weight
     num_paths = 0
@@ -204,8 +205,8 @@ def trevize(G, s, t, v1, verbose):
     print("V':", v1)
 
     init_globals(s, t, v1)
-    pprint(preds)
-    pprint(succs)
+    # pprint(preds)
+    # pprint(succs)
 
     def check_path_between(v1_n, n_v2):
         """Check if path  of v1->n and n->v2 can be merged.
@@ -222,10 +223,6 @@ def trevize(G, s, t, v1, verbose):
             else:
                 return False
 
-    def merge_v1():
-        """Merge (vi, vj)."""
-        pass
-
     def add_link(v_out, v_in, p_out=[], p_in=[]):
         if not p_out:
             p_out = [v_out]
@@ -237,12 +234,20 @@ def trevize(G, s, t, v1, verbose):
             links[(v_out, v_in)] += [p_out + p_in]
         else:
             links[(v_out, v_in)] = [p_out + p_in]
-
+        return [p_out + p_in]
 
     def find_links(v_out, v_in, depth_out, depth_in):
         """Find demanded links of (vi, vj)."""
+        if (v_out, v_in) in links:
+            return links[(v_out, v_in)]
         if depth_out is 1 and depth_in is 1:
-            return
+            # print(v_out, v_in)
+            if v_in in succs[v_out][depth_out]:
+                return add_link(v_out, v_in)
+        if not (succs[v_out][depth_out] or preds[v_in][depth_in]):
+            # print(succs[v_out], depth_out)
+            # print(preds[v_in], depth_in)
+            return 'X'
         for v_succ in succs[v_out][depth_out]:
             if v_succ in preds[v_in][depth_in]:
                 paths_out = succs[v_out][depth_out][v_succ]
@@ -250,99 +255,145 @@ def trevize(G, s, t, v1, verbose):
                 for p_out in paths_out:
                     for p_in in paths_in:
                         if check_path_between(p_out, p_in):
-                            add_link(v_out, v_in, p_out, p_in)
+                            return add_link(v_out, v_in, p_out, p_in)
+        return []
 
-
+    # init 1-layer of links
     for v in succs:  # find 1-layer links
         for v_succ in succs[v][1]:
             if v_succ in set_v1 or v_succ is t:
-                print('direct link of {0}->{1}.'.format(v, v_succ))
+                # print('direct link of {0}->{1}.'.format(v, v_succ))
                 add_link(v, v_succ)
-
 
     stack = deque()
     ll_v1 = [[v] for v in v1]
     path_begin = [[s], [t]] + ll_v1, set([])
     stack.appendleft(path_begin)
-    print(stack)
-    print(path_begin)
+    # print(stack)
+    # print(path_begin)
 
     def v1_merge_DFS(pack_path):
         """DFS algorithm to merge links between v1."""
         path, used = pack_path
-        print(path, used)
+        # print(path, used)
+        tup_path = []
+        for i in path:
+            tup_path += [tuple(i)]
+        tup_path = tuple(tup_path)
+        if tup_path in wrong_set:
+            # print('Wrong set: ', tup_path, wrong_set)
+            return
+        # print(tup_path)
         if len(path) is 1:  # find path
+            print()
             print('find path.')
-            print(path)
+            print(path[0])
+            print()
+            return True
 
-        # add link by iteration
+        def path_find_link(path_link, list_v_out, list_v_in, 
+                           depth_out, depth_in):
+            """Find link for path.
+
+            Bugs may happen when no valid path."""
+            while not path_link:
+                for v in list_v_out:
+                    get_v_layer(v, depth_out, 'out')
+                for v in list_v_in:
+                    get_v_layer(v, depth_in, 'in')
+                for vi in list_v_out:
+                    for vj in list_v_in:
+                        # print(vi, vj, depth_out, depth_in)
+                        if vi is not vj:
+                            path_ij = find_links(vi, vj, depth_out, depth_in)
+                            if path_ij is 'X':
+                                return False
+                            if path_ij:
+                                path_link[(vi, vj)] = path_ij
+                if depth_out == depth_in:
+                    depth_out += 1
+                else:
+                    depth_in += 1
+                # print('depth_out:{}, depth_in:{}.'.format(depth_out, depth_in))
+                # print('path: link')
+                # pprint(path_link)
+                # input(s)
+            return path_link
+
+        # add link of first layer
         path_link = {}
-        depth_out = 1
-        depth_in = 1
-        while not path_link:
-            list_v_out = [v[-1] for v in path if v[-1] is not t]
-            list_v_in = [v[0] for v in path if v[0] is not s]
-            print('list out', list_v_out)
-            print('list in', list_v_in)
+        list_v_out = [v[-1] for v in path if v[-1] is not t]
+        list_v_in = [v[0] for v in path if v[0] is not s]
+        # print('list out', list_v_out)
+        # print('list in', list_v_in)
+        flag = path_find_link(path_link, list_v_out, list_v_in, 1, 1)
+        # for link in links: init path_link
+        #     if link[0] in list_v_out and link[1] in list_v_in:
+        #         path_link[link] = links[link]
+        if flag is False:
+            # print('False')
+            wrong_set.add(tup_path)
 
-            for link in links:
-                if link[0] in list_v_out and link[1] in list_v_in:
-                    path_link[link] = links[link]
 
-            for v in list_v_out:
-                get_v_layer(v, depth_out, 'out')
-            for v in list_v_in:
-                get_v_layer(v, depth_in, 'in')
-            for vi in list_v_out:
-                for vj in list_v_in:
-                    find_links(vi, vj, depth_out, depth_in)
-            if depth_out == depth_in:
-                depth_out += 1
-            else:
-                depth_in += 1
-        print('path: link')
-        pprint(path_link)
-
-        # finish iteration, add path to stack
+        # try to link
         for link in path_link:
             # print(link, path_link[link])
             for link_path in path_link[link]:
                 vertices_to_add = set(link_path[1:-1])
                 link_out, link_in = link[0], link[-1]
                 if link_out in path[0] and link_in in path[1]:
-                    # early s-t path without some of V1, invalid
-                    continue
+                    if len(path) > 2:  # early s-t path without some of V1, invalid
+                        continue
                 if not(used & vertices_to_add):  # valid link
                     path_new = update_path(path, link_path)
-                    # print(path_new, link_path)
-                    stack.appendleft((path_new, used | vertices_to_add))
+                    if path_new:
+                        stack.appendleft((path_new, used | vertices_to_add))
+                    # return
+
+
+            # finish iteration, add path to stack
 
     def update_path(path, link):
         """Merge path with link."""
         link_out, link_in = link[0], link[-1]
-        print(path, link)
+        # print(path, link)
         path_new = path[:]
         group_out, group_in = 0, 0
         for group in path_new:  # (s, link_out)
             if link_out in group:
                 group_out = group
-            elif link_in in group:
+            if link_in in group:
                 group_in = group
-        print(group_in, group_out)  # test
+        # print(group_in, group_out)  # test
+        if group_in == group_out:
+            return False
         if link_in not in path[1]:
             path_new.remove(group_in)
             path_new[path_new.index(group_out)] = (group_out +
-                                               link[1:] + group_in[1:])
+                                                   link[1:] + group_in[1:])
         else:  # change path[1] to not disturb t
             path_new.remove(group_out)
-            path_new[1] = (group_out + link[1:] + group_in[1:])
+            # print(path_new)
+            # print(group_out, link[1:], group_in[1:])
+            if len(path_new) is 1: 
+                path_new[0] = (group_out + link[1:] + group_in[1:])
+            else:
+                path_new[1] = (group_out + link[1:] + group_in[1:])
         return path_new
-
+    i_searched = 0 
     while True:
-        v1_merge_DFS(stack.popleft())
-        print('len of stack: {}'.format(len(stack)))
-        pprint(stack)
-        input(s)
+        flag = v1_merge_DFS(stack.popleft())
+        
+        # pprint(stack[0])
+        if flag:
+            break
+        i_searched += 1
+        if i_searched % 10000 == 0:
+            print('len of stack: {}'.format(len(stack)))
+            # pprint(stack[0])
+            # print(len(wrong_set))
+            # input(s)
+    print(i_searched)
 
     if verbose:  # verbose printout
         print("added route:", i_searched)
@@ -427,6 +478,7 @@ def main():
     print("time: {}".format(t1-t0))
 
     return 0
+
 
 if __name__ == '__main__':
     main()
