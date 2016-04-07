@@ -273,7 +273,7 @@ def trevize(G, s, t, v1, verbose):
             else:
                 # print('no way!')
                 break
-            
+
     # pprint(succs[3])
     # pprint(preds[3])
     # pprint(links)
@@ -294,7 +294,7 @@ def trevize(G, s, t, v1, verbose):
     # pprint(links_out)
     # pprint(links_in)
     global final_path
-    final_path = []
+    final_path = [[s], [t]] + [[v] for v in v1]
     wrong_pair = {}
 
     def find_least_pair(links):
@@ -305,6 +305,8 @@ def trevize(G, s, t, v1, verbose):
             for pair in links_out[v]:
                 v_in = pair[1]
                 outdegree = sv1_outdegree[v]
+                print(links_out[v])
+                print(pair)
                 indegree = v1t_indegree[v_in]
                 length = len(links_out[v][pair][0])  # MVP: shortest path
                 links[pair] = (outdegree+indegree, outdegree, indegree, length, links_out[v][pair])
@@ -317,7 +319,7 @@ def trevize(G, s, t, v1, verbose):
                 elif outdegree + indegree == least[0]:
                     if length < least[3]:  # least[length]
                         least = links[pair]
-                elif (least[1] > 1 and least[2] > 1) and (outdegree is 1 or indegree is 1):  
+                elif (least[1] > 1 and least[2] > 1) and (outdegree is 1 or indegree is 1):
                     # in and out > 1, but new one is (1,n)
                     least = links[pair]
         # pprint(links)
@@ -328,19 +330,21 @@ def trevize(G, s, t, v1, verbose):
         """Del v1 pair from out or in."""
         if direction is 'out':
             path_set_sv1.remove(v)
+            del sv1_outdegree[v]
             del links_out[v]
             for v_in in links_in:
                 for key in links_in[v_in]:
-                    if key[0] is v:
+                    if key[0] == v:
                         del links_in[v_in][key]
                         break
             # update v_outdegree
         else:
             path_set_v1t.remove(v)
+            del v1t_indegree[v]
             del links_in[v]
             for v_out in links_out:
                 for key in links_out[v_out]:
-                    if key[1] is v:
+                    if key[1] == v:
                         del links_out[v_out][key]
                         break
 
@@ -348,38 +352,63 @@ def trevize(G, s, t, v1, verbose):
         """Del v1v2 pair.
 
         if (2,3) is a pair, then 3->2 is not valid."""
-        if v_in in links_out:
-            if (v_in, v_out) in links_out[v_in]:
-                del links_out[v_in][(v_in, v_out)]
+        if v_out in links_out:
+            if (v_out, v_in) in links_out[v_out]:
+                del links_out[v_out][(v_out, v_in)]
 
     def merge_path(final_path, new_link):
         """Merge paths."""
         start, end = new_link[0], new_link[-1]
+        # print(final_path, new_link)
         for i in range(len(final_path)):
             if final_path[i][-1] == start:
-                final_path[i] += new_link
-            if final_path[i][0] == :
-                final_path[i] = new_link + final_path[i]
-        return final_path
+                del_start = final_path[i]
+            if final_path[i][0] == end:
+                del_end = final_path[i]
+        new_ele = del_start + new_link[1:-1] + del_end
+        final_path.remove(del_start)
+        final_path.remove(del_end)
+        final_path.append(new_ele)
+        new_out = new_ele[-1]
+        new_in = new_ele[0]
+        # print(final_path)
+        return final_path, new_out, new_in
 
 
     def one_move(final_path):
+        # pprint(links_out)
         least_paths = find_least_pair(links)
         best_path = least_paths[0]
         v_out, v_in = best_path[0], best_path[-1]
-        print(best_path)
-        final_path = merge_path(final_path, best_path)
+        print("new merge: ", best_path)
+        final_path, new_out, new_in = merge_path(final_path, best_path)
         # final_path.append(best_path)
         del_v1_pair(v_out, 'out')
         del_v1_pair(v_in, 'in')
-        del_v1v2_pair(v_out, v_in)
+        del_v1v2_pair(new_out, new_in)
+        for v in path_set_sv1:
+            sv1_outdegree[v] = len(links_out[v])
+            # print(v, 'out', len(links_out[v]))
+        for v in path_set_v1t:
+            v1t_indegree[v] = len(links_in[v])
+        # print(sv1_outdegree)
+        # print(v1t_indegree)
         print(final_path)
+
 
     while path_set_sv1:
         one_move(final_path)
         # pprint(links_out)
         # pprint(links_in)
         print(path_set_sv1)
+        print(path_set_v1t)
+        # input('pause: ')
+    print('finished:', final_path[0])
+    if len(final_path[0]) == len(set(final_path[0])):
+        print('valid path.')
+    else:
+        print('invalid path.')
+        print(len(final_path[0]), len(set(final_path[0])))
     # pprint(preds)
     # pprint(succs)
     return
@@ -474,7 +503,7 @@ def trevize(G, s, t, v1, verbose):
             print()
             return True
 
-        def path_find_link(path_link, list_v_out, list_v_in, 
+        def path_find_link(path_link, list_v_out, list_v_in,
                            depth_out, depth_in):
             """Find link for path.
 
@@ -558,16 +587,16 @@ def trevize(G, s, t, v1, verbose):
             path_new.remove(group_out)
             # print(path_new)
             # print(group_out, link[1:], group_in[1:])
-            if len(path_new) is 1: 
+            if len(path_new) is 1:
                 path_new[0] = (group_out + link[1:] + group_in[1:])
             else:
                 path_new[1] = (group_out + link[1:] + group_in[1:])
         return path_new
 
-    i_searched = 0 
+    i_searched = 0
     while True:
         flag = v1_merge_DFS(stack.popleft())
-        
+
         # pprint(stack[0])
         if flag:
             break
