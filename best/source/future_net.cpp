@@ -688,9 +688,6 @@ void spfa_SearchRoute()
 
 int main(int argc, char *argv[])
 {  
-    clock_t endTime;
-    double duration;
-
     char *str = (char*)malloc(1024);
     memset(str, 0, 1024);
     strcpy(str, argv[1]);
@@ -732,6 +729,8 @@ int main(int argc, char *argv[])
         SearchRoute();
 
         #ifdef _TEST_RESULT_
+        clock_t endTime;
+        double duration;
         endTime = clock();
         duration = (double)(endTime - g_startTime) / CLOCKS_PER_SEC;
         cout<<endl<<"Time: "<<duration<<"s, Total Cost: "<<g_totalCost<<endl;
@@ -745,7 +744,14 @@ int main(int argc, char *argv[])
             }
         }
 
-        spfa_SearchRoute();
+        if (g_edgeNum > 1200)
+        {
+            spfa_SearchRoute_11();
+        }
+        else
+        {
+            spfa_SearchRoute();
+        }
     }
 
 

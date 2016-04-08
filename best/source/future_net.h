@@ -22,7 +22,7 @@
 #endif
 
 /* 搜索结果信息打印 */
-#define _TEST_RESULT_
+//#define _TEST_RESULT_
 
 /* 按是否为中间点v'和权重大小两项 排序邻接表 */
 #define _PSEUDO_COST_
