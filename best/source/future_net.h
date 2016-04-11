@@ -126,8 +126,6 @@ void DeVisit(int visit[], IntNode *pHead);
 
 void SearchRouteBySPFA();
 
-
-
 inline bool IsInterVex(const int vexID);
 
 bool IsDupEdge(EdgeNode *pNode, const int edgeId, const int destVex, const int edgeCost);
@@ -149,8 +147,6 @@ double GetTimeInterval(EdgeNode *pEdge, double remainTime);
 int MultiLayerPseudoCost(EdgeInfo *pEdgeInfo, int layer);
 
 void ReformMultiLayerAdjList(int loop, int layer);
-
-
 
 void SearchRouteByBalanceSPFA();
 

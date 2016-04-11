@@ -5,7 +5,6 @@
 #include <cmath>
 #include <ctime>
 #include <queue>
-
 #include "future_net.h"
 
 using namespace std;
@@ -103,6 +102,9 @@ int main(int argc, char *argv[])
     free(str);
 
     Init(fp_topo, fp_demand);
+    fclose(fp_topo);
+    fclose(fp_demand);
+
     SearchRoute();
 
     #ifdef _TEST_RESULT_
@@ -117,16 +119,12 @@ int main(int argc, char *argv[])
     cout<<endl<<"Time: "<<duration<<"s, Total Cost: "<<g_totalCost<<endl;
     #endif
 
-    fclose(fp_topo);
-    fclose(fp_demand);
-
     #ifndef _TEST_RESULT_
     fclose(fp_result);
     #endif
 
     return 0;
 }
-
 
 
 /****************************************
@@ -149,7 +147,6 @@ void Init(FILE *fp_topo, FILE *fp_demand)
         g_spfaEdgeList[i].pFirstEdge = NULL;
     }
 
-
     memset(g_headEdge, -1, sizeof(g_headEdge));
     memset(g_resultRoute, -1, sizeof(g_resultRoute));
 
@@ -158,7 +155,6 @@ void Init(FILE *fp_topo, FILE *fp_demand)
     int destVex;
     int edgeCost;
     EdgeInfo *pInfo;
-
 
     while (fscanf(fp_topo, "%d,%d,%d,%d\n", &edgeID, &srcVex, &destVex, &edgeCost) > 0)
     {
@@ -427,27 +423,27 @@ void SPFA(int startVex, int endVex)
     g_vexQueu.push(startVex);
     while (!g_vexQueu.empty())
     {  
-        int t = g_vexQueu.front();
+        int queueFront = g_vexQueu.front();
         g_vexQueu.pop();
-        visit[t] = 0;
-        int j;
+        visit[queueFront] = 0;
+        int i;
 
-        for (j = g_headEdge[t]; j != -1; j = g_edges[j].nextEdge)
+        for (i = g_headEdge[queueFront]; i != -1; i = g_edges[i].nextEdge)
         {
-            int w = g_edges[j].edgeCost;
-            if (w + g_spfaLeastCost[t] < g_spfaLeastCost[g_edges[j].destVex])
+            int cost = g_edges[i].edgeCost;
+            if (cost + g_spfaLeastCost[queueFront] < g_spfaLeastCost[g_edges[i].destVex])
             {
-                g_spfaLeastCost[g_edges[j].destVex] = w + g_spfaLeastCost[t];
-                g_vexPath[g_edges[j].destVex] = t;
-                g_inEdgeOfVex[g_edges[j].destVex] = j;
-                g_edgePath[j] = g_inEdgeOfVex[t];
+                g_spfaLeastCost[g_edges[i].destVex] = cost + g_spfaLeastCost[queueFront];
+                g_vexPath[g_edges[i].destVex]       = queueFront;
+                g_inEdgeOfVex[g_edges[i].destVex]   = i;
+                g_edgePath[i]                       = g_inEdgeOfVex[queueFront];
 
-                if (!visit[g_edges[j].destVex]
-                    && (g_edges[j].destVex != g_startVex && g_edges[j].destVex != g_endVex)
-                    && (g_spfaInterVex[g_edges[j].destVex] == 0 || g_spfaInterVex[g_edges[j].destVex] == endVex))
+                if (!visit[g_edges[i].destVex]
+                    && (g_edges[i].destVex != g_startVex && g_edges[i].destVex != g_endVex)
+                    && (g_spfaInterVex[g_edges[i].destVex] == 0 || g_spfaInterVex[g_edges[i].destVex] == endVex))
                 {
-                    visit[g_edges[j].destVex] = 1;
-                    g_vexQueu.push(g_edges[j].destVex);
+                    visit[g_edges[i].destVex] = 1;
+                    g_vexQueu.push(g_edges[i].destVex);
                 }  
             }  
         }
@@ -695,7 +691,6 @@ void SearchRouteBySPFA()
 }
 
 
-
 /****************************************
 函数名称：
 函数功能：判断顶点是否属于中间点集v'
@@ -713,6 +708,7 @@ inline bool IsInterVex(const int vexID)
     }
     return false;
 }
+
 
 /****************************************
 函数名称：
@@ -740,6 +736,7 @@ bool IsDupEdge(EdgeNode *pNode, const int edgeId, const int destVex, const int e
     return false;
 }
 
+
 /****************************************
 函数名称：
 函数功能：在插入节点时,非中间点集v'内的点,权重按+20计算,排在后面
@@ -764,6 +761,7 @@ int GetPseudoCost(EdgeInfo *pEdgeInfo)
         return (pEdgeInfo->edgeCost + 20);
     }
 }
+
 
 /****************************************
 函数名称：
@@ -1326,7 +1324,6 @@ void SearchRouteByBalanceSPFA()
     clock_t endTime;
     double duration;
 
-
     int visit[MAX_VEX] = {0};
     int vexStack[MAX_VEX+1];
     int stackTop = 1;
@@ -1529,7 +1526,6 @@ double GetTimeIntervalForBalanceSPFA(EdgeNode *pEdge, double remainTime)
 }
 
 
-
 /****************************************
 函数名称：
 函数功能：测试打印
@@ -1546,12 +1542,14 @@ void PrintSPFALeastCost(int endVex)
         printf("%d\n", g_spfaLeastCost[endVex]);
 }
 
+
 void PrintPathByVex(int i)
 {
     if(g_vexPath[i] != -1)
         PrintPathByVex(g_vexPath[i]);
     cout<<i<<' ';
 }
+
 
 void PrintPathByEdge(int i)
 {
@@ -1563,6 +1561,7 @@ void PrintPathByEdge(int i)
     cout<<i;
 }
 
+
 void PrintStack(int vexStack[], int stackTop)
 {
     int i = 1;
@@ -1572,6 +1571,7 @@ void PrintStack(int vexStack[], int stackTop)
     }
     cout<<endl;
 }
+
 
 void PrintList()
 {
