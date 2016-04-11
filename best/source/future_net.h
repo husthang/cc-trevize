@@ -30,42 +30,25 @@
 #define _JUDGE_MULTI_LAYER_ADJ_
 //#define _TEST_MULTI_LAYER_ADJ_
 
-/* 从interVex往外搜索 */
-//#define _VEX_LEVEL_
+/* 起始点出边DFS均搜 */
+//#define _STARTVEX_BALANCE_DFS_
 
-/* 统计每个顶点在之后的路径中最多经过多少v'顶点,并据此判断是否继续搜索 */
-/* 有不明bug */
-//#define _JUDGE_MAX_INTER_
-
-/* 统计每个顶点在之后的路径中是否能通向终点endVex,并据此判断是否继续搜索 */
-/* 对成环情况考虑不周 */
-//#define _JUDGE_DISCARD_
-
-/* BFS */
-#define _BFS_
-//#define _TEST_BFS_
-
-
-/****************************************
- * 宏 常量
- ****************************************/
-/* 最大顶点数 */
-#define MAX_VEX     (600)
-/* 最大有向边数 */
-#define MAX_EDGE    (4800)
-/* 最大中间点集v'数 */
-#define MAX_INTER   (50)
-/* 权重极限值 */
-//#define INF         (999999)
-/* 缺省字符串长度 */
-#define MAX_STR     (1024)
-
-#define MAX_QUEUE   (3)
+/* 两层DFS均搜 */
+//#define _TWO_LAYER_DFS_
+//#define _TEST_TWO_LAYER_DFS_
 
 
 /****************************************
  * 结构体
  ****************************************/
+typedef struct Edge
+{
+    int destVex;
+    int nextEdge;
+    int edgeCost;
+} Edge;
+
+
 typedef struct IntNode
 {
     int data;
@@ -101,30 +84,50 @@ typedef struct AdjListHead
     struct EdgeNode *pFirstEdge;
 } AdjListHead;
 
-typedef struct VexInfo
-{
-    bool isDone;
-    bool isDiscard;
-    int passNum;
-    int minInterNum;
-    int maxInterNum;
-    int maxInterTmp;
-} VexInfo;
-
-
-/****************************************
- * 枚举
- ****************************************/
-/* 程序状态返回码 */
-typedef enum StatusInfo
-{
-    SYS_ERROR = 0
-} StatusInfo;
-
 
 /****************************************
  * 函数声明
  ****************************************/
+void Init(FILE *fp_topo, FILE *fp_demand);
+
+void SearchRoute();
+
+void PrintSPFALeastCost(int End);
+
+void PrintPathByVex(int k);
+
+void PrintPathByEdge(int k);
+
+void InsertEdgeNodeForSPFA(EdgeNode **pFirstEdge, EdgeInfo *pInfo);
+
+void PrintList();
+
+void GetVexSegment(int k, IntNode **pHead, IntNode **pTail);
+
+void GetEdgeSegment(int k, IntNode **pHead, IntNode **pTail, int *pCost);
+
+void PrintIntNode(IntNode *pHead);
+
+void SPFA(int Start, int End);
+
+void PrintStack(int vexStack[], int stackTop);
+
+#ifndef _TEST_RESULT_
+void PrintResultFile(FILE *fp_result);
+#else
+void PrintResultFile();
+#endif
+
+void PrintVisit(int visit[]);
+
+bool EnVisit(int visit[], IntNode *pHead);
+
+void DeVisit(int visit[], IntNode *pHead);
+
+void SearchRouteBySPFA();
+
+
+
 inline bool IsInterVex(const int vexID);
 
 bool IsDupEdge(EdgeNode *pNode, const int edgeId, const int destVex, const int edgeCost);
@@ -133,15 +136,13 @@ int GetPseudoCost(EdgeInfo *pEdgeInfo);
 
 void InsertEdgeNode(EdgeNode **pFirstEdge, EdgeInfo *pInfo);
 
-void InitTopoFile(FILE *fp_topo);
-
 bool UpdateEdges(EdgeNode *pEdges[], int QueueLayer);
 
-EdgeNode *UpdateStackInfo(EdgeNode *pEdges[], int vexStack[], int visit[], EdgeInfo *edgeStack[MAX_VEX], int *stackTop, int *stackTopVex, bool *isFirstEdge, int *costSum);
+EdgeNode *UpdateStackInfo(EdgeNode *pEdges[], int vexStack[], int visit[], EdgeInfo *edgeStack[], int *stackTop, int *stackTopVex, bool *isFirstEdge, int *costSum);
 
 bool CountEdges(EdgeNode *pEdges[], int QueueLayer, int *count);
 
-void SearchRoute();
+void SearchRouteByDFS();
 
 double GetTimeInterval(EdgeNode *pEdge, double remainTime);
 
@@ -150,9 +151,10 @@ int MultiLayerPseudoCost(EdgeInfo *pEdgeInfo, int layer);
 void ReformMultiLayerAdjList(int loop, int layer);
 
 
-void spfa_SearchRoute_11();
 
-double GetTimeInterval_11(EdgeNode *pEdge, double remainTime);
+void SearchRouteByBalanceSPFA();
+
+double GetTimeIntervalForBalanceSPFA(EdgeNode *pEdge, double remainTime);
 
 
 #endif 
