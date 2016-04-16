@@ -1,9 +1,10 @@
 # repo specific settings
 graph_builder/graph_builder
-wiki/
+*wiki/
 test/
 submission/
 *.ipynb
+*.DS_Store
 
 # gitignore: python + c @ GitHub
 
