@@ -6,16 +6,28 @@
     - topo: `topo.csv`, contains graph
     - demand: `demand.csv`, contains `s, t, v1(V')`
     - o: output filename
-- process
-    - DFS + DP
+- process: V'-based search
+    - find links between vertice in V'
+    - greedy search between these paths
+    - merge into the path
 - output
     - path
+
+Notes:
+    - as we use greedy search between paths, we cannot always find the path.
+    (e.g. std case 3 is a counter example. while 1, 2, 4 can be easily solved.)
+    - this algorithm can be fixed to
+        - find more pairs first
+        - use DFS or random search (instead of greedy based on in/out degrees)
+    - however, as we are working in Phase II and integer programming is
+    proposed as priority, V'-based search is not so important now.
 """
 
 # Author: Mo Frank Hu (mofrankhu@gmail.com)
 # Dependencies: Python 3, NetworkX
 
 import networkx as nx
+
 
 def read_csv(g, stv1):
     """Read the two cs v input files.
@@ -214,7 +226,6 @@ def trevize(G, s, t, v1, verbose, first_pairs=[]):
 
     def sort_path(vertex, next_list):
         """Sort next vertex list by V' first, then by weight."""
-
         weight_list = {}
         for next_v in next_list:
             # generate value list: add large num to vertices not in v1
@@ -223,72 +234,7 @@ def trevize(G, s, t, v1, verbose, first_pairs=[]):
                 weight_list[next_v] = next_list[next_v]['weight']
             else:
                 weight_list[next_v] = (next_list[next_v]['weight'] + LARGE_NUM)
-
         return sorted(weight_list, key=weight_list.get)
-
-    # from collections import deque
-    from pprint import pprint
-
-    set_v1 = set(v1)
-    set_sv1 = set([s] + v1)  # out
-    set_v1t = set(v1 + [t])  # in
-    valid_paths = []
-    preds = {}  # two dict to store values
-    succs = {}
-    links = {}  # (vi, vj): [path1, path2, ...]
-    links_out = {}
-    links_in = {}
-    for v in set_sv1:
-        links_out[v] = {}
-    for v in set_v1t:
-        links_in[v] = {}
-
-    # wrong_set = set([])  # DP all wrong paths
-
-    global num_paths, max_weight
-    num_paths = 0
-    BIG_WEIGHT = 4800
-    max_weight = BIG_WEIGHT
-    global i_searched  # num of paths searched
-    i_searched = 0
-    print("s:", s, "t:", t, "V':", v1)  # printout for debugging
-
-    #init_globals(s, t, v1)
-    INIT_DEPTH = 5  # init depth
-    for v in set_sv1:
-        depth = 1
-        while (not links_out[v]) or (depth < INIT_DEPTH):
-            if get_v_layer(v, depth, 'out'):
-                depth += 1
-            else:
-                break
-    for v in set_v1t:
-        depth = 1
-        while (not links_in[v]) or (depth < INIT_DEPTH):
-            if get_v_layer(v, depth, 'in'):
-                depth += 1
-            else:
-                break
-
-    sv1_outdegree = {}
-    v1t_indegree = {}
-    for v in set_sv1:
-        sv1_outdegree[v] = len(links_out[v])
-        # print(v, 'out', len(links_out[v]))
-    for v in set_v1t:
-        v1t_indegree[v] = len(links_in[v])
-        # print(v, 'in', len(links_in[v]))
-    path_set_sv1 = set_sv1.copy()
-    path_set_v1t = set_v1t.copy()
-
-    global final_path
-    final_path = [[s], [t]] + [[v] for v in v1]
-    global used
-    used = []
-    global first_pairs0
-    first_pairs0 = []
-    for i in first_pairs:
-        first_pairs0.append(i[:])
 
     def find_least_pair(links, pair_to_find=False):
         """Find least merge pair."""
@@ -298,6 +244,12 @@ def trevize(G, s, t, v1, verbose, first_pairs=[]):
             path_pair = links_out[pair_to_find[0]][tuple(pair_to_find)][0]
             return path_pair
         least = (100, 100, 100, 600, 0)
+        for v in path_set_sv1:
+            if v not in links_out:  # a vertex is not in links_out
+                print('no way for vertex:', v)
+                print(path_set_sv1)
+                pprint(links_out)
+                return 0
         for v in path_set_sv1:
             for pair in links_out[v]:  # iterate all link in links_out
                 v_in = pair[1]
@@ -388,12 +340,13 @@ def trevize(G, s, t, v1, verbose, first_pairs=[]):
         else:
             least_paths = find_least_pair(links)
             # print('least_paths', least_paths)
-            if least_paths == False:  # no paths
+            if not least_paths:  # no paths
                 return False
             for best_path in least_paths:
                 if len(best_path) > 2:  # if new v not in V' is added to path
                     new_used_v = set(best_path[1:-1])
-                    print(new_used_v)
+                    if verbose:
+                        print('new added to v:', new_used_v)
                     for v in new_used_v:
                         del_v_between(v)
                     if not (new_used_v & set(used)):
@@ -407,18 +360,22 @@ def trevize(G, s, t, v1, verbose, first_pairs=[]):
                 print('No right path.\n')
                 return False
         v_out, v_in = best_path[0], best_path[-1]
-        print("new merge:", best_path)
+        if verbose:
+            print("new merge:", best_path)
         final_path, new_out, new_in = merge_path(final_path, best_path)
 
         del_v1_pair(v_out, 'out')
         del_v1_pair(v_in, 'in')
         del_v1v2_pair(new_out, new_in)
         for v in path_set_sv1:
-            sv1_outdegree[v] = len(links_out[v])
+            if v in links_out:
+                sv1_outdegree[v] = len(links_out[v])
         for v in path_set_v1t:
-            v1t_indegree[v] = len(links_in[v])
-        print(final_path)
-        input('pause')
+            if v in links_in:
+                v1t_indegree[v] = len(links_in[v])
+        if verbose:
+            print(final_path)
+            input('pause')
         return True
 
     def del_v_between(v):
@@ -468,16 +425,75 @@ def trevize(G, s, t, v1, verbose, first_pairs=[]):
             if not links_in[v]:
                 del links_in[v]
 
+    from pprint import pprint
+
+    set_v1 = set(v1)
+    set_sv1 = set([s] + v1)  # out
+    set_v1t = set(v1 + [t])  # in
+    valid_paths = []
+    preds = {}  # two dict to store values
+    succs = {}
+    links = {}  # (vi, vj): [path1, path2, ...]
+    links_out = {}
+    links_in = {}
+    for v in set_sv1:
+        links_out[v] = {}
+    for v in set_v1t:
+        links_in[v] = {}
+
+    global num_paths, max_weight
+    num_paths = 0
+    BIG_WEIGHT = 4800
+    max_weight = BIG_WEIGHT
+    global i_searched  # num of paths searched
+    i_searched = 0
+    print("s:", s, "t:", t, "V':", v1)  # printout for debugging
+
+    INIT_DEPTH = 5  # init depth: 5 works for std case 1, 2, 4
+    for v in set_sv1:
+        depth = 1
+        while (not links_out[v]) or (depth < INIT_DEPTH):
+            if get_v_layer(v, depth, 'out'):
+                depth += 1
+            else:
+                break
+    for v in set_v1t:
+        depth = 1
+        while (not links_in[v]) or (depth < INIT_DEPTH):
+            if get_v_layer(v, depth, 'in'):
+                depth += 1
+            else:
+                break
+
+    sv1_outdegree = {}
+    v1t_indegree = {}
+    for v in set_sv1:
+        sv1_outdegree[v] = len(links_out[v])
+        # print(v, 'out', len(links_out[v]))
+    for v in set_v1t:
+        v1t_indegree[v] = len(links_in[v])
+        # print(v, 'in', len(links_in[v]))
+    path_set_sv1 = set_sv1.copy()
+    path_set_v1t = set_v1t.copy()
+
+    global final_path
+    final_path = [[s], [t]] + [[v] for v in v1]
+    global used
+    used = []
+    global first_pairs0
+    first_pairs0 = []
+    for i in first_pairs:
+        first_pairs0.append(i[:])
 
     while path_set_sv1:
         if not one_move(final_path, first_pairs):
             return final_path, first_pairs0
-        print('used', used)
+        if verbose:
+            print('used vertex:', used)
         # pprint(links_out)
         # pprint(links_in)
         # pprint(sv1_outdegree)
         # pprint(v1t_indegree)
-    print('finished:', final_path[0])
     if len(final_path[0]) == len(set(final_path[0])):
         print('valid path.')
     else:
@@ -567,8 +583,11 @@ def main():
     while isinstance(note, list):
         answer = trevize(G, s, t, v1, verbose, note)
         path, note = answer
-        print(note)
-        input('iteration')
+        print(path, note)
+        if len(path) is not 1:  # only one element in path
+            input('do not find valid path. iteration')
+        else:
+            break
     write_csv(o, answer, 'all', verbose)
     t1 = time.time()
     print("time: {}".format(t1-t0))
