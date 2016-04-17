@@ -27,6 +27,7 @@ Notes:
 # Dependencies: Python 3, NetworkX
 
 import networkx as nx
+import time  # get benchmark data
 
 
 def read_csv(g, stv1):
@@ -214,24 +215,39 @@ def trevize(G, s, t, v1, verbose, first_pairs=[]):
         """Given two dicts, merge them into a new dict as a shallow copy."""
         z = x.copy()
         z.update(y)
-        return z
+        return z  # for py < 3.5
+        # return {**x, **y}
 
     def check_path(path):
         """Check if path con tains all vertices in v1."""
         if set_v1 <= set(path[1:-1]):
-            # print('find path:', path)
-            return True
+            if path not in valid_paths:
+                return True
         else:
             return False
 
     def sort_path(vertex, next_list):
         """Sort next vertex list by V' first, then by weight."""
         weight_list = {}
+        if len(next_list) is 1:
+            return list(next_list)
+
         for next_v in next_list:
             # generate value list: add large num to vertices not in v1
-            LARGE_NUM = 21
-            if next_v in v1:
+            LARGE_NUM = 20
+            if next_v is t:
+                weight_list[next_v] = 0
+            if next_v in dict_v1:
                 weight_list[next_v] = next_list[next_v]['weight']
+                if iter_depth is 0:
+                    nn_v_list = G[next_v]
+                    if nn_v_list:
+                        nn_weight = sort_path(next_v, nn_v_list, 1)[0]
+                        # least weight from nn_v_list
+                        weight_list[next_v] = (next_list[next_v]['weight'] +
+                                               nn_weight)
+                else:
+                    weight_list[next_v] = (next_list[next_v]['weight'])
             else:
                 weight_list[next_v] = (next_list[next_v]['weight'] + LARGE_NUM)
         return sorted(weight_list, key=weight_list.get)
@@ -578,6 +594,7 @@ def main():
     G, s, t, v1 = read_csv(topo, demand)
 
     import time
+    global t0
     t0 = time.time()
     note = []
     while isinstance(note, list):
@@ -597,3 +614,10 @@ def main():
 
 if __name__ == '__main__':
     main()
+
+    # import cProfile
+    # cProfile.run('main()', 'restats')
+
+    # import pstats
+    # p = pstats.Stats('restats')
+    # p.sort_stats('cumulative').print_stats(20)
