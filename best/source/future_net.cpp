@@ -1,355 +1,245 @@
 #include <iostream>
 #include <cstdio>
 #include <cstdlib>
-#include <cmath>
 #include <cstring>
+#include <cmath>
+#include <ctime>
 #include <queue>
-#include <time.h>
 #include "future_net.h"
+
 using namespace std;
 
 
-const int MAXV = 600;
-const int MAXE = 4800;
-const int INF  = 0x7FFFFFFF;
+/* 全局常量 */
+const int INF         = 0x7FFFFFFF;     // 极限值
+const int MAX_VEX     = 600;            // 最大顶点数
+const int MAX_EDGE    = 4800;           // 最大边数
+const int MAX_INTER   = 50;             // 最大v'中间点数
+const int MAX_STR     = 1024;           // 缺省字符串数
+const int MAX_QUEUE   = 1;              // 最大BFS均搜层数
+const double MAX_TIME = 9.0;            // 最大搜索时限
 
-typedef struct Edge
-{  
-    int v;  
-    int next;  
-    int cost;  
-}Edge;
 
-Edge e[MAXE];
-int p[MAXE];
-int Dis[MAXE];
-bool vist[MAXV];
-queue<int> q;  
+/* 全局变量 */
+int g_headEdge[MAX_VEX];                // 各点出边邻接表的头节点边
+int g_spfaLeastCost[MAX_EDGE];          // SPFA搜出的各点最短路径权重
+Edge g_edges[MAX_EDGE];                 // 有向边数组
 
-int pathv[MAXV];
-int vpree[MAXV];
-int pathe[MAXE];
+queue<int> g_vexQueu;                   // 顶点队列
 
-/*
-typedef struct EdgeInfo
+int g_vexPath[MAX_VEX];                 // 用顶点表示的路径
+int g_inEdgeOfVex[MAX_VEX];             // SPFA最短路径各点入边
+int g_edgePath[MAX_EDGE];               // 用有向边表示的路径
+
+
+AdjListHead *g_spfaEdgeList = NULL;     // 压缩图后,V'有向边邻接表
+AdjListHead *g_edgeList = NULL;         // 有向边邻接表
+
+int g_startVex;                         // 起点
+int g_endVex;                           // 终点
+
+int g_spfaInterVex[MAX_VEX];            // V'必经中间点集(SPFA用)
+int g_interVex[MAX_INTER];              // V'必经中间点集
+
+int g_edgeNum = 0;                      // 全图有向边数
+int g_interNum = 0;                     // 全图V'必经中间点数
+int g_totalCost = INF;                  // 总权重
+int g_resultRoute[MAX_VEX+1];           // 搜索路径结果
+
+clock_t g_startTime;                    // 计时器起始时间
+
+
+int main(int argc, char *argv[])
 {
-    int destVex;    // 目标顶点
-    int srcVex;     // 起始定点
-    int edgeID;     // 有向边编号
-    int edgeCost;   // 有向边权重
-    IntNode *vexSegHead;
-    IntNode *vexSegTail;
-    IntNode *edgeSegHead;
-    IntNode *edgeSegTail;
-} EdgeInfo;
-*/
-
-/* 有向边链表节点 */
-/*
-typedef struct EdgeNode
-{
-    struct EdgeInfo edgeInfo;   // 有向边信息
-    struct EdgeNode *pNext;
-} EdgeNode;
-*/
-
-/* 邻接表 各链表头节点 存储第一条边 */
-/*
-typedef struct AdjListHead
-{
-    struct EdgeNode *pFirstEdge;
-} AdjListHead;
-*/
-
-AdjListHead *g_spfaEdgeList = NULL;
-AdjListHead *g_edgeList = NULL;
-
-int g_startVex;
-int g_endVex;
-
-int g_spfaInterVex[MAXV];
-int g_interVex[MAX_INTER];
-
-int g_interNum = 0;
-int g_totalCost = INF;
-int g_resultRoute[MAX_VEX+1];
-clock_t g_startTime;
-
-VexInfo **g_vexInfo;
-int g_edgeNum = 0;
-
-void init(FILE *fp_topo, FILE *fp_demand)
-{
-    int eid = 0;
-    int from,to,cost;
-    memset(p, -1, sizeof(p));
-    memset(g_resultRoute, -1, sizeof(g_resultRoute));
-
-    while (fscanf(fp_topo, "%d,%d,%d,%d\n", &eid, &from, &to, &cost) > 0)
+    char *str = (char *)malloc(MAX_STR);
+    memset(str, 0, MAX_STR);
+    if (argv[1] != NULL)
     {
-        e[eid].next = p[from];  
-        e[eid].v    = to;  
-        e[eid].cost = cost;  
-        p[from]     = eid;
-        //printf("## %d %d %d %d\n", eid, e[eid].next, e[eid].v, e[eid].cost);
+        strcpy(str, argv[1]);
     }
-
-    fscanf(fp_demand, "%d,%d,", &g_startVex, &g_endVex);
-    memset(g_spfaInterVex, 0, sizeof(g_spfaInterVex));
-    int num;
-    while (fscanf(fp_demand, "%d|", &num) > 0)
-    {
-        g_spfaInterVex[num] = 1;
-        g_interVex[g_interNum] = num;
-        g_interNum++;
-    }
-
-    g_spfaEdgeList = (AdjListHead *)malloc(sizeof(AdjListHead)*(MAXV));
-    for (int i = 0; i < MAXV; i++)
-    {
-        g_spfaEdgeList[i].pFirstEdge = NULL;
-        vist[i] = false;
-    }
-}
-
-void print(int End)  
-{  
-    if (Dis[End] == INF)
-        printf("NA\n");
     else
-        printf("%d\n", Dis[End]);      
-}
-
-void PrintPathV(int k)
-{
-    if(pathv[k] != -1) 
-        PrintPathV(pathv[k]);
-    cout<<k<<' ';
-}
-
-void PrintPathE(int k)
-{
-    if(pathe[k] != -1) 
     {
-        PrintPathE(pathe[k]);
-        cout<<'|';
+        strcpy(str, "topo.csv");
     }
-    cout<<k;
-}
-
-
-void spfa_InsertEdgeNode(EdgeNode **pFirstEdge, EdgeInfo *pInfo)
-{
-    if (NULL == pFirstEdge || NULL == pInfo)
+    FILE *fp_topo = fopen(str, "r");
+    if (fp_topo == NULL)
     {
         exit(1);
     }
 
-    EdgeNode *pHead = *pFirstEdge;
-    EdgeNode *pNode = pHead;
-    EdgeNode *pNew  = (EdgeNode *)malloc(sizeof(EdgeNode));
-    while (NULL != pNode)
+    memset(str, 0, MAX_STR);
+    if (argv[1] != NULL && argv[2] != NULL)
     {
-        if (pNode->edgeInfo.edgeCost < pInfo->edgeCost)
+        strcpy(str, argv[2]);
+    }
+    else
+    {
+        strcpy(str, "demand.csv");
+    }
+    FILE *fp_demand = fopen(str, "r");
+    if (fp_demand == NULL)
+    {
+        exit(1);
+    }
+
+    #ifndef _TEST_RESULT_
+    memset(str, 0, MAX_STR);
+    if (argv[1] != NULL && argv[2] != NULL && argv[3] != NULL)
+    {
+        strcpy(str, argv[3]);
+    }
+    else
+    {
+        strcpy(str, "result.csv");
+    }
+    FILE *fp_result = fopen(str, "w");
+    if (fp_result == NULL)
+    {
+        exit(1);
+    }
+    #endif
+
+    free(str);
+
+    Init(fp_topo, fp_demand);
+    fclose(fp_topo);
+    fclose(fp_demand);
+
+    SearchRoute();
+
+    #ifdef _TEST_RESULT_
+    PrintResultFile();
+    #else
+    PrintResultFile(fp_result);
+    #endif
+
+    #ifdef _TEST_RESULT_
+    endTime = clock();
+    duration = (double)(endTime - g_startTime) / CLOCKS_PER_SEC;
+    cout<<endl<<"Time: "<<duration<<"s, Total Cost: "<<g_totalCost<<endl;
+    #endif
+
+    #ifndef _TEST_RESULT_
+    fclose(fp_result);
+    #endif
+
+    return 0;
+}
+
+
+/****************************************
+函数名称：
+函数功能：读取输入文件,初始化
+输入参数：
+输出参数：
+返回值：
+修改情况：
+*****************************************/
+void Init(FILE *fp_topo, FILE *fp_demand)
+{
+    int i = 0;
+    g_edgeList     = (AdjListHead *)malloc(sizeof(AdjListHead)*MAX_VEX);
+    g_spfaEdgeList = (AdjListHead *)malloc(sizeof(AdjListHead)*(MAX_VEX));
+
+    for (i = 0; i < MAX_VEX; i++)
+    {
+        g_edgeList[i].pFirstEdge     = NULL;
+        g_spfaEdgeList[i].pFirstEdge = NULL;
+    }
+
+    memset(g_headEdge, -1, sizeof(g_headEdge));
+    memset(g_resultRoute, -1, sizeof(g_resultRoute));
+
+    int edgeID;
+    int srcVex;
+    int destVex;
+    int edgeCost;
+    EdgeInfo *pInfo;
+
+    while (fscanf(fp_topo, "%d,%d,%d,%d\n", &edgeID, &srcVex, &destVex, &edgeCost) > 0)
+    {
+        g_edges[edgeID].nextEdge = g_headEdge[srcVex];
+        g_edges[edgeID].destVex  = destVex;
+        g_edges[edgeID].edgeCost = edgeCost;
+        g_headEdge[srcVex]       = edgeID;
+
+        if (!IsDupEdge(g_edgeList[srcVex].pFirstEdge, edgeID, destVex, edgeCost))
         {
-            pHead = pNode;
-            pNode = pNode->pNext;
+            pInfo = (EdgeInfo *)malloc(sizeof(EdgeInfo));
+            pInfo->edgeID      = edgeID;
+            pInfo->srcVex      = srcVex;
+            pInfo->destVex     = destVex;
+            pInfo->edgeCost    = edgeCost;
+            pInfo->vexSegHead  = NULL;
+            pInfo->vexSegTail  = NULL;
+            pInfo->edgeSegHead = NULL;
+            pInfo->edgeSegTail = NULL;
+            InsertEdgeNode(&(g_edgeList[srcVex].pFirstEdge), pInfo);
+            g_edgeNum++;
+        }
+    }
+
+    #ifdef _JUDGE_MULTI_LAYER_ADJ_
+    ReformMultiLayerAdjList(2, 2);
+    #endif
+
+    memset(g_spfaInterVex, 0, sizeof(g_spfaInterVex));
+
+    fscanf(fp_demand, "%d,%d,", &g_startVex, &g_endVex);
+    int vexID;
+    while (fscanf(fp_demand, "%d|", &vexID) > 0)
+    {
+        g_spfaInterVex[vexID]  = 1;
+        g_interVex[g_interNum] = vexID;
+        g_interNum++;
+    }
+}
+
+
+/****************************************
+函数名称：
+函数功能：搜索路径
+输入参数：
+输出参数：
+返回值：
+修改情况：
+*****************************************/
+void SearchRoute()
+{
+    if (g_edgeNum < 100)
+    {
+        SearchRouteByDFS();
+    }
+    else
+    {
+        for (int i = 0; i < MAX_VEX; i++)
+        {
+            if (1 == g_spfaInterVex[i] || i == g_startVex)
+            {
+                SPFA(i, 0);
+            }
+        }
+
+        if (g_edgeNum > 1200)
+        {
+            SearchRouteByBalanceSPFA();
         }
         else
         {
-            break;
-        }
-    }
-    memcpy(&(pNew->edgeInfo), pInfo, sizeof(EdgeInfo));
-    pNew->pNext = pNode;
-    if (pNode == pHead)
-    {
-        *pFirstEdge = pNew;
-    }
-    else
-    {
-        pHead->pNext = pNew;
-    }
-}
-
-
-void PrintList()
-{
-    EdgeNode *pNode = NULL;
-    for (int i = 0; i < MAXV; i++)
-    {
-        pNode = g_spfaEdgeList[i].pFirstEdge;
-        if (pNode == NULL)
-        {
-            continue;
-        }
-        while (pNode != NULL)
-        {
-            cout << pNode->edgeInfo.srcVex << "->" << pNode->edgeInfo.destVex << endl;
-            pNode = pNode->pNext;
-        }
-        cout << endl;
-    }
-}
-
-
-void GetVexSegment(int k, IntNode **pHead, IntNode **pTail)
-{
-    if(pathv[k] != -1)
-    {
-        GetVexSegment(pathv[k], pHead, pTail);
-    }
-    //cout<<k<<' ';
-    IntNode *pNew = (IntNode *)malloc(sizeof(IntNode));
-    pNew->data = k;
-    pNew->pNext = NULL;
-    if (*pHead == NULL)
-    {
-        *pHead = pNew;
-    }
-    else
-    {
-        IntNode *pNode = *pHead;
-        while (pNode->pNext != NULL)
-        {
-            pNode = pNode->pNext;
-        }
-        pNode->pNext = pNew;
-    }
-    *pTail = pNew;
-}
-
-void GetEdgeSegment(int k, IntNode **pHead, IntNode **pTail, int *pCost)
-{
-    if(pathe[k] != -1)
-    {
-        GetEdgeSegment(pathe[k], pHead, pTail, pCost);
-        //cout<<'|';
-    }
-    //cout<<k;
-    IntNode *pNew = (IntNode *)malloc(sizeof(IntNode));
-    pNew->data = k;
-    pNew->pNext = NULL;
-    *pCost += e[k].cost;
-    if (*pHead == NULL)
-    {
-        *pHead = pNew;
-    }
-    else
-    {
-        IntNode *pNode = *pHead;
-        while (pNode->pNext != NULL)
-        {
-            pNode = pNode->pNext;
-        }
-        pNode->pNext = pNew;
-    }
-    *pTail = pNew;
-}
-
-void PrintIntNode(IntNode *pHead)
-{
-    IntNode *pNode = pHead;
-    while (pNode != NULL)
-    {
-        cout<<pNode->data<<" ";
-        pNode = pNode->pNext;
-    }
-    cout<<endl;
-}
-
-void SPF(int Start, int End)
-{
-    memset(pathv, -1, sizeof(pathv));
-    memset(vpree, -1, sizeof(vpree));
-    memset(pathe, -1, sizeof(pathe));
-    fill(Dis, Dis+MAXE, INF);
-    while (!q.empty())
-    {
-        q.pop();
-    }
-
-
-    Dis[Start]  = 0;  
-    vist[Start] = true;
-    q.push(Start);  
-    while (!q.empty())  
-    {  
-        int t = q.front();  
-        q.pop();  
-        vist[t] = false;  
-        int j;
-
-        for (j=p[t]; j!=-1; j=e[j].next)
-        {
-            int w = e[j].cost;
-            if (w + Dis[t] < Dis[e[j].v])  
-            {
-                Dis[e[j].v] = w + Dis[t];
-                pathv[e[j].v] = t;
-                vpree[e[j].v] = j;
-                pathe[j] = vpree[t];
-                //printf("E: %d, V: %d %d\n", j, e[j].v, t);
-                if (!vist[e[j].v]
-                    && (e[j].v != g_startVex && e[j].v != g_endVex)
-                    && (g_spfaInterVex[e[j].v] == 0 || g_spfaInterVex[e[j].v] == End))
-                {  
-                    vist[e[j].v] = true;  
-                    q.push(e[j].v);  
-                }  
-            }  
-        }
-    }
-    //print(End);
-    //PrintPathV(End);
-    //printf("\n");
-    //PrintPathE(vpree[End]);
-    //printf("\n");
-    EdgeInfo *pInfo;
-    for (int i = 0; i < MAXV; i++)
-    {
-        if ((1 == g_spfaInterVex[i] || i == g_endVex) && i != Start)
-        {
-            if (Dis[i] != INF)
-            {
-                //PrintPathV(i);
-                //printf("\n");
-                //PrintPathE(vpree[i]);
-                //printf("\n");
-
-                pInfo = (EdgeInfo *) malloc(sizeof(EdgeInfo));
-                pInfo->edgeID   = -1;
-                pInfo->srcVex   = Start;
-                pInfo->destVex  = i;
-                pInfo->edgeCost = 0;
-                pInfo->vexSegHead = NULL;
-                pInfo->vexSegTail = NULL;
-                GetVexSegment(i, &(pInfo->vexSegHead), &(pInfo->vexSegTail));
-                //PrintIntNode(pInfo->vexSegHead);
-                pInfo->edgeSegHead = NULL;
-                pInfo->edgeSegTail = NULL;
-                GetEdgeSegment(vpree[i], &(pInfo->edgeSegHead), &(pInfo->edgeSegTail), &(pInfo->edgeCost));
-                //PrintIntNode(pInfo->edgeSegHead);
-                spfa_InsertEdgeNode(&(g_spfaEdgeList[Start].pFirstEdge), pInfo);
-
-            }
+            SearchRouteBySPFA();
         }
     }
 }
 
 
-void PrintStack(int vexStack[], int stackTop)
-{
-    int i = 1;
-    for (i = 1; i <= stackTop; i++)
-    {
-        cout<<vexStack[i]<<" ";
-    }
-    cout<<endl;
-}
-
-
-
+/****************************************
+函数名称：
+函数功能：输出结果至 result文件 或 标准输出
+输入参数：
+输出参数：
+返回值：
+修改情况：
+*****************************************/
 #ifndef _TEST_RESULT_
 void PrintResultFile(FILE *fp_result)
 {
@@ -392,19 +282,216 @@ void PrintResultFile()
 #endif
 
 
-void PrintVisit(int visit[])
+/****************************************
+函数名称：
+函数功能：在拓扑压缩后的邻接表中插入节点
+输入参数：
+输出参数：
+返回值：
+修改情况：
+*****************************************/
+void InsertEdgeNodeForSPFA(EdgeNode **pFirstEdge, EdgeInfo *pInfo)
 {
-    for (int i = 0; i < 50; i++)
+    if (NULL == pFirstEdge || NULL == pInfo)
     {
-        cout<<visit[i];
+        exit(1);
     }
-    cout<<endl;
+
+    EdgeNode *pHead = *pFirstEdge;
+    EdgeNode *pNode = pHead;
+    EdgeNode *pNew  = (EdgeNode *)malloc(sizeof(EdgeNode));
+    while (NULL != pNode)
+    {
+        if (pNode->edgeInfo.edgeCost < pInfo->edgeCost)
+        {
+            pHead = pNode;
+            pNode = pNode->pNext;
+        }
+        else
+        {
+            break;
+        }
+    }
+    memcpy(&(pNew->edgeInfo), pInfo, sizeof(EdgeInfo));
+    pNew->pNext = pNode;
+    if (pNode == pHead)
+    {
+        *pFirstEdge = pNew;
+    }
+    else
+    {
+        pHead->pNext = pNew;
+    }
 }
 
 
+/****************************************
+函数名称：
+函数功能：获得V'顶点间最短路径(以顶点存储)
+输入参数：
+输出参数：
+返回值：
+修改情况：
+*****************************************/
+void GetVexSegment(int k, IntNode **pHead, IntNode **pTail)
+{
+    if(g_vexPath[k] != -1)
+    {
+        GetVexSegment(g_vexPath[k], pHead, pTail);
+    }
+    IntNode *pNew = (IntNode *)malloc(sizeof(IntNode));
+    pNew->data = k;
+    pNew->pNext = NULL;
+    if (*pHead == NULL)
+    {
+        *pHead = pNew;
+    }
+    else
+    {
+        IntNode *pNode = *pHead;
+        while (pNode->pNext != NULL)
+        {
+            pNode = pNode->pNext;
+        }
+        pNode->pNext = pNew;
+    }
+    *pTail = pNew;
+}
+
+
+/****************************************
+函数名称：
+函数功能：获得V'顶点间最短路径(以有向边存储)
+输入参数：
+输出参数：
+返回值：
+修改情况：
+*****************************************/
+void GetEdgeSegment(int k, IntNode **pHead, IntNode **pTail, int *pCost)
+{
+    if(g_edgePath[k] != -1)
+    {
+        GetEdgeSegment(g_edgePath[k], pHead, pTail, pCost);
+    }
+    IntNode *pNew = (IntNode *)malloc(sizeof(IntNode));
+    pNew->data = k;
+    pNew->pNext = NULL;
+    *pCost += g_edges[k].edgeCost;
+    if (*pHead == NULL)
+    {
+        *pHead = pNew;
+    }
+    else
+    {
+        IntNode *pNode = *pHead;
+        while (pNode->pNext != NULL)
+        {
+            pNode = pNode->pNext;
+        }
+        pNode->pNext = pNew;
+    }
+    *pTail = pNew;
+}
+
+
+/****************************************
+函数名称：
+函数功能：SPFA算法搜索最短路
+输入参数：
+输出参数：
+返回值：
+修改情况：
+算法引用: Duan, Fanding (1994), "关于最短路径的SPFA快速算法", 西南交通大学学报 29 (2): 207–212
+*****************************************/
+void SPFA(int startVex, int endVex)
+{
+    memset(g_vexPath, -1, sizeof(g_vexPath));
+    memset(g_inEdgeOfVex, -1, sizeof(g_inEdgeOfVex));
+    memset(g_edgePath, -1, sizeof(g_edgePath));
+
+    while (!g_vexQueu.empty())
+    {
+        g_vexQueu.pop();
+    }
+
+    fill(g_spfaLeastCost, g_spfaLeastCost+MAX_EDGE, INF);
+    g_spfaLeastCost[startVex]  = 0;
+
+    int visit[MAX_VEX] = {0};
+    visit[startVex] = 1;
+
+    g_vexQueu.push(startVex);
+    while (!g_vexQueu.empty())
+    {  
+        int queueFront = g_vexQueu.front();
+        g_vexQueu.pop();
+        visit[queueFront] = 0;
+        int i;
+
+        for (i = g_headEdge[queueFront]; i != -1; i = g_edges[i].nextEdge)
+        {
+            int cost = g_edges[i].edgeCost;
+            if (cost + g_spfaLeastCost[queueFront] < g_spfaLeastCost[g_edges[i].destVex])
+            {
+                g_spfaLeastCost[g_edges[i].destVex] = cost + g_spfaLeastCost[queueFront];
+                g_vexPath[g_edges[i].destVex]       = queueFront;
+                g_inEdgeOfVex[g_edges[i].destVex]   = i;
+                g_edgePath[i]                       = g_inEdgeOfVex[queueFront];
+
+                if (!visit[g_edges[i].destVex]
+                    && (g_edges[i].destVex != g_startVex && g_edges[i].destVex != g_endVex)
+                    && (g_spfaInterVex[g_edges[i].destVex] == 0 || g_spfaInterVex[g_edges[i].destVex] == endVex))
+                {
+                    visit[g_edges[i].destVex] = 1;
+                    g_vexQueu.push(g_edges[i].destVex);
+                }  
+            }  
+        }
+    }
+
+    EdgeInfo *pInfo;
+    for (int i = 0; i < MAX_VEX; i++)
+    {
+        if ((1 == g_spfaInterVex[i] || i == g_endVex) && i != startVex)
+        {
+            if (g_spfaLeastCost[i] != INF)
+            {
+                //PrintPathByVex(i);
+                //printf("\n");
+                //PrintPathByEdge(g_inEdgeOfVex[i]);
+                //printf("\n");
+
+                pInfo = (EdgeInfo *) malloc(sizeof(EdgeInfo));
+                pInfo->edgeID   = -1;
+                pInfo->srcVex   = startVex;
+                pInfo->destVex  = i;
+                pInfo->edgeCost = 0;
+                pInfo->vexSegHead = NULL;
+                pInfo->vexSegTail = NULL;
+                GetVexSegment(i, &(pInfo->vexSegHead), &(pInfo->vexSegTail));
+                //PrintIntNode(pInfo->vexSegHead);
+                pInfo->edgeSegHead = NULL;
+                pInfo->edgeSegTail = NULL;
+                GetEdgeSegment(g_inEdgeOfVex[i], &(pInfo->edgeSegHead), &(pInfo->edgeSegTail), &(pInfo->edgeCost));
+                //PrintIntNode(pInfo->edgeSegHead);
+                InsertEdgeNodeForSPFA(&(g_spfaEdgeList[startVex].pFirstEdge), pInfo);
+
+            }
+        }
+    }
+}
+
+
+/****************************************
+函数名称：
+函数功能：拓扑展开拼接最短路时,判断非V'点是否成环
+输入参数：
+输出参数：
+返回值：
+修改情况：
+*****************************************/
 bool EnVisit(int visit[], IntNode *pHead)
 {
-    visit[599] = 1;
     IntNode *pNode = pHead;
     int stop = 0;
     while (pNode != NULL)
@@ -430,6 +517,14 @@ bool EnVisit(int visit[], IntNode *pHead)
 }
 
 
+/****************************************
+函数名称：
+函数功能：拓扑展开拼接最短路时,对于成环路段,回溯visit判断
+输入参数：
+输出参数：
+返回值：
+修改情况：
+*****************************************/
 void DeVisit(int visit[], IntNode *pHead)
 {
     IntNode *pNode = pHead;
@@ -441,15 +536,20 @@ void DeVisit(int visit[], IntNode *pHead)
 }
 
 
-
-
-void spfa_SearchRoute()
+/****************************************
+函数名称：
+函数功能：回溯拼接SPFA最短路,寻中符合要求的路径
+输入参数：
+输出参数：
+返回值：
+修改情况：
+*****************************************/
+void SearchRouteBySPFA()
 {
     clock_t endTime;
     double duration;
 
-
-    char visit[MAX_VEX] = {0};
+    int visit[MAX_VEX] = {0};
     int vexStack[MAX_VEX+1];
     int stackTop = 1;
     int stackTopVex = g_startVex;
@@ -457,19 +557,14 @@ void spfa_SearchRoute()
 
     EdgeInfo *edgeStack[MAX_VEX];     // 由于每个点只经过一次,所以最多走过MAX_VEX-1条边. 且stack[0]不压入数据.
     EdgeNode *pEdge = g_spfaEdgeList[g_startVex].pFirstEdge;
-    //EdgeNode *pStartEdge = pEdge;
 
     visit[g_startVex] = 1;
     vexStack[stackTop] = g_startVex;    // vexStack[0]不压入数据,用于判断栈空. vexStack[1]存放起始点.
     edgeStack[0] = NULL;                // edgeStack[0]不压入数据. edgeStack[1]用于存放其实边,即起始点的出边.
 
-
     int i = 0;
 
-    //double remainTime = 9.9;
-    //double timeInterval = GetTimeInterval(pEdge, remainTime);
-    //double timeLimit = timeInterval;
-
+    double remainTime = MAX_TIME;
     int costSum = 0;
 
     int visitInt[MAX_VEX] = {0};
@@ -487,12 +582,8 @@ void spfa_SearchRoute()
             pEdge = pEdge->pNext;
         }
 
-        RENEW:
-
         if (pEdge != NULL)
         {
-            //sPrintStack(vexStack, stackTop);
-
             if (0 == visit[pEdge->edgeInfo.destVex])
             {
                 visit[pEdge->edgeInfo.destVex] = 1;
@@ -512,49 +603,11 @@ void spfa_SearchRoute()
 
                 if (pEdge->edgeInfo.destVex == g_endVex)
                 {
-                    /*
-                    int interNumCount = g_interNum;
-                    //costSum = 0;
-                    for (i = 1; i < stackTop; i++)  // edgeStack[]的下标范围是[1]~[stackTop-1]
-                    {
-                        if (interNumCount != 0 && IsInterVex(vexStack[i]))
-                        {
-                            interNumCount--;
-                        }
-                        //costSum += edgeStack[i]->edgeCost;
-                    }
-
-                    if (0 == interNumCount)
-                    {
-                        if (costSum < g_totalCost)
-                        {
-                            g_totalCost = costSum;
-                            memset(g_resultRoute, -1, sizeof(g_resultRoute));
-                            for (i = 1; i < stackTop; i++)
-                            {
-                                g_resultRoute[i-1] = edgeStack[i]->edgeID;
-                            }
-                        }
-                    }
-                    */
-
-                    /*
-                    if (g_interNum + 2 == stackTop)
-                    {
-                        g_totalCost = costSum;
-                        memset(g_resultRoute, -1, sizeof(g_resultRoute));
-                        for (i = 1; i < stackTop; i++)
-                        {
-                            g_resultRoute[i - 1] = edgeStack[i]->edgeID;
-                        }
-                    }
-                    */
 
                     if (g_interNum + 2 == stackTop)
                     {
                         if (costSum < g_totalCost)
                         {
-                            //memset(visitInt, 0, sizeof(visitInt));
                             int n = 0;
                             IntNode *pIntVex = NULL;
                             IntNode *pIntEdge = NULL;
@@ -564,29 +617,18 @@ void spfa_SearchRoute()
                                 pIntEdge = edgeStack[i]->edgeSegHead;
                                 while (pIntEdge != NULL)
                                 {
-                                   // if (visitInt[pIntVex->data] == 0)
-                                   // {
-                                        g_resultRoute[n] = pIntEdge->data;
-                                        pIntEdge = pIntEdge->pNext;
-                                        n++;
-                                        //visitInt[pIntVex->data] = 1;
-                                        //pIntVex = pIntVex->pNext;
-                                    //}
-                                    //else
-                                    //{
-                                    //    goto WRONG_ANSWER;
-                                    //}
+                                    g_resultRoute[n] = pIntEdge->data;
+                                    pIntEdge = pIntEdge->pNext;
+                                    n++;
                                 }
                             }
                             g_resultRoute[n] = -1;
                             g_totalCost = costSum;
                             #ifdef _TEST_RESULT_
-                            cout << "OKOKOKOKOK " << g_totalCost << endl;
+                            cout << "New Least Cost  " << g_totalCost << endl;
                             #endif
-                            //PrintResultFile(NULL);
                         }
                     }
-                    WRONG_ANSWER:
 
                     visit[g_endVex] = 0;
                     stackTop--;
@@ -617,48 +659,14 @@ void spfa_SearchRoute()
                     isFirstEdge = true;
                 }
 
-                /*
-                if (1 == stackTop)
-                {
-                    timeLimit += timeInterval;
-                    pStartEdge = pStartEdge->pNext;
-                }
-                */
             }
 
             endTime = clock();
             duration = (double)(endTime - g_startTime) / CLOCKS_PER_SEC;
-            if (duration > 9.9)
+            if (duration > remainTime)
             {
                 break;
             }
-            /*
-            if (duration > timeLimit)
-            {
-                if (duration > remainTime)
-                {
-                    break;
-                }
-                timeLimit += timeInterval;
-                pStartEdge = pStartEdge->pNext;
-                if (NULL == pStartEdge)
-                {
-                    break;
-                }
-                for (i = 0; i < MAX_VEX; i++)
-                {
-                    visit[i] = 0;
-                }
-                isFirstEdge = false;
-                stackTop = 1;
-                stackTopVex = g_startVex;
-                visit[g_startVex] = 1;
-                pEdge = pStartEdge;
-                costSum = 0;
-
-                goto RENEW;
-            }
-            */
         }
         else
         {
@@ -683,107 +691,6 @@ void spfa_SearchRoute()
 }
 
 
-
-
-
-int main(int argc, char *argv[])
-{  
-    char *str = (char*)malloc(1024);
-    memset(str, 0, 1024);
-    strcpy(str, argv[1]);
-    FILE *fp_topo = fopen(str, "r");
-    if (fp_topo == NULL)
-        exit(1);
-
-    memset(str, 0, 1024);
-    strcpy(str, argv[2]);
-    FILE *fp_demand = fopen(str, "r");
-    if (fp_demand == NULL)
-        exit(1);
-
-    #ifndef _TEST_RESULT_
-    memset(str, 0, 1024);
-    strcpy(str, argv[3]);
-    FILE *fp_result = fopen(str, "w");
-    if (fp_result == NULL)
-        exit(1);
-    #endif
-
-    init(fp_topo, fp_demand);
-    InitTopoFile(fp_topo);
-
-    if (g_interNum > 40)
-    {
-        for (int i = 0; i < MAXV; i++)
-        {
-            if (1 == g_spfaInterVex[i] || i == g_startVex)
-            {
-                SPF(i, 0);
-            }
-        }
-
-        spfa_SearchRoute_11();
-    }
-    else
-    {
-        SearchRoute();
-
-        #ifdef _TEST_RESULT_
-        clock_t endTime;
-        double duration;
-        endTime = clock();
-        duration = (double)(endTime - g_startTime) / CLOCKS_PER_SEC;
-        cout<<endl<<"Time: "<<duration<<"s, Total Cost: "<<g_totalCost<<endl;
-        #endif
-
-        for (int i = 0; i < MAXV; i++)
-        {
-            if (1 == g_spfaInterVex[i] || i == g_startVex)
-            {
-                SPF(i, 0);
-            }
-        }
-
-        if (g_edgeNum > 1200)
-        {
-            spfa_SearchRoute_11();
-        }
-        else
-        {
-            spfa_SearchRoute();
-        }
-    }
-
-
-    #ifdef _TEST_RESULT_
-    PrintResultFile();
-    #else
-    PrintResultFile(fp_result);
-    #endif
-
-    #ifdef _TEST_RESULT_
-    endTime = clock();
-    duration = (double)(endTime - g_startTime) / CLOCKS_PER_SEC;
-    cout<<endl<<"Time: "<<duration<<"s, Total Cost: "<<g_totalCost<<endl;
-    #endif
-
-
-    fclose(fp_topo);
-    fclose(fp_demand);
-    #ifndef _TEST_RESULT_
-    fclose(fp_result);
-    #endif
-
-    free(str);
-    return 0;
-}
-
-
-
-
-///////////////////////
-
-
 /****************************************
 函数名称：
 函数功能：判断顶点是否属于中间点集v'
@@ -801,6 +708,7 @@ inline bool IsInterVex(const int vexID)
     }
     return false;
 }
+
 
 /****************************************
 函数名称：
@@ -828,6 +736,7 @@ bool IsDupEdge(EdgeNode *pNode, const int edgeId, const int destVex, const int e
     return false;
 }
 
+
 /****************************************
 函数名称：
 函数功能：在插入节点时,非中间点集v'内的点,权重按+20计算,排在后面
@@ -853,6 +762,7 @@ int GetPseudoCost(EdgeInfo *pEdgeInfo)
     }
 }
 
+
 /****************************************
 函数名称：
 函数功能：在邻接表中按权重大小顺序插入有向边节点
@@ -873,11 +783,11 @@ void InsertEdgeNode(EdgeNode **pFirstEdge, EdgeInfo *pInfo)
     EdgeNode *pNew  = (EdgeNode *)malloc(sizeof(EdgeNode));
     while (NULL != pNode)
     {
-#ifdef _PSEUDO_COST_
+        #ifdef _PSEUDO_COST_
         if (GetPseudoCost(&(pNode->edgeInfo)) < GetPseudoCost(pInfo))
-#else
-            if (pNode->edgeInfo.edgeCost < pInfo->edgeCost)
-#endif
+        #else
+        if (pNode->edgeInfo.edgeCost < pInfo->edgeCost)
+        #endif
         {
             pHead = pNode;
             pNode = pNode->pNext;
@@ -902,69 +812,7 @@ void InsertEdgeNode(EdgeNode **pFirstEdge, EdgeInfo *pInfo)
 
 /****************************************
 函数名称：
-函数功能：topo.csv文件初始化
-输入参数：
-输出参数：
-返回值：
-修改情况：
-*****************************************/
-void InitTopoFile(FILE *fp_topo)
-{
-    int i = 0;
-    g_edgeList = (AdjListHead *)malloc(sizeof(AdjListHead)*MAX_VEX);
-
-    for (i = 0; i < MAX_VEX; i++)
-    {
-        g_edgeList[i].pFirstEdge = NULL;
-
-#ifdef _VEX_LEVEL_
-        if (IsInterVex(i))
-        {
-            //vexlevel[i] = 0;
-        }
-        else
-        {
-            //vexlevel[i] = -1;
-        }
-#endif
-    }
-
-    int edgeID;
-    int srcVex;
-    int destVex;
-    int edgeCost;
-    EdgeInfo *pInfo;
-    fseek(fp_topo, 0, SEEK_SET);
-    while (fscanf(fp_topo, "%d,%d,%d,%d\n", &edgeID, &srcVex, &destVex, &edgeCost) > 0)
-    {
-        if (!IsDupEdge(g_edgeList[srcVex].pFirstEdge, edgeID, destVex, edgeCost))
-        {
-            pInfo = (EdgeInfo *)malloc(sizeof(EdgeInfo));
-            pInfo->edgeID   = edgeID;
-            pInfo->srcVex   = srcVex;
-            pInfo->destVex  = destVex;
-            pInfo->edgeCost = edgeCost;
-            pInfo->vexSegHead  = NULL;
-            pInfo->vexSegTail  = NULL;
-            pInfo->edgeSegHead = NULL;
-            pInfo->edgeSegTail = NULL;
-            InsertEdgeNode(&(g_edgeList[srcVex].pFirstEdge), pInfo);
-            g_edgeNum++;
-        }
-    }
-
-#ifdef _JUDGE_MULTI_LAYER_ADJ_
-    ReformMultiLayerAdjList(2, 2);
-#endif
-
-}
-
-
-
-
-/****************************************
-函数名称：
-函数功能：
+函数功能：更新浅层DFS边栈元素
 输入参数：
 输出参数：
 返回值：
@@ -979,7 +827,7 @@ bool UpdateEdges(EdgeNode *pEdges[], int QueueLayer)
     pEdges[QueueLayer] = pEdges[QueueLayer]->pNext;
     while (NULL == pEdges[QueueLayer])
     {
-        if(false == UpdateEdges(pEdges, QueueLayer-1))
+        if(!UpdateEdges(pEdges, QueueLayer-1))
         {
             return false;
         }
@@ -988,6 +836,14 @@ bool UpdateEdges(EdgeNode *pEdges[], int QueueLayer)
     return true;
 }
 
+/****************************************
+函数名称：
+函数功能：更新浅层DFS边栈信息
+输入参数：
+输出参数：
+返回值：
+修改情况：
+*****************************************/
 EdgeNode *UpdateStackInfo(EdgeNode *pEdges[], int vexStack[], int visit[], EdgeInfo *edgeStack[MAX_VEX], int *stackTop, int *stackTopVex, bool *isFirstEdge, int *costSum)
 {
     int i = 0;
@@ -1029,6 +885,15 @@ EdgeNode *UpdateStackInfo(EdgeNode *pEdges[], int vexStack[], int visit[], EdgeI
     return pNode;
 }
 
+
+/****************************************
+函数名称：
+函数功能：计算浅层DFS路径数
+输入参数：
+输出参数：
+返回值：
+修改情况：
+*****************************************/
 bool CountEdges(EdgeNode *pEdges[], int QueueLayer, int *count)
 {
     if (-1 == QueueLayer)
@@ -1038,7 +903,7 @@ bool CountEdges(EdgeNode *pEdges[], int QueueLayer, int *count)
     pEdges[QueueLayer] = pEdges[QueueLayer]->pNext;
     while (NULL == pEdges[QueueLayer])
     {
-        if(false == UpdateEdges(pEdges, QueueLayer-1))
+        if(!UpdateEdges(pEdges, QueueLayer-1))
         {
             return false;
         }
@@ -1060,7 +925,16 @@ bool CountEdges(EdgeNode *pEdges[], int QueueLayer, int *count)
     return true;
 }
 
-void SearchRoute()
+
+/****************************************
+函数名称：
+函数功能：DFS回溯均搜
+输入参数：
+输出参数：
+返回值：
+修改情况：
+*****************************************/
+void SearchRouteByDFS()
 {
     clock_t endTime;
     double duration;
@@ -1074,25 +948,27 @@ void SearchRoute()
 
     EdgeInfo *edgeStack[MAX_VEX];     // 由于每个点只经过一次,所以最多走过MAX_VEX-1条边. 且stack[0]不压入数据.
     EdgeNode *pEdge = g_edgeList[g_startVex].pFirstEdge;
+
+    #ifdef _STARTVEX_BALANCE_DFS_
     EdgeNode *pStartEdge = pEdge;
+    #endif
 
     visit[g_startVex] = 1;
     vexStack[stackTop] = g_startVex;    // vexStack[0]不压入数据,用于判断栈空. vexStack[1]存放起始点.
     edgeStack[0] = NULL;                // edgeStack[0]不压入数据. edgeStack[1]用于存放其实边,即起始点的出边.
 
-    double remainTime = 2.9;
+    double remainTime = MAX_TIME;
+
+    #ifdef _STARTVEX_BALANCE_DFS_
     double timeInterval = GetTimeInterval(pEdge, remainTime);
     double timeLimit = timeInterval;
+    #endif
 
     int costSum = 0;
-    g_totalCost = 1200;
     memset(g_resultRoute, -1, sizeof(g_resultRoute));
 
-#ifdef _JUDGE_MAX_INTER_
-    int interSum = 0;
-#endif
 
-#ifdef _BFS_
+    #ifdef _TWO_LAYER_DFS_
     EdgeNode *pEdges[MAX_QUEUE];
     EdgeNode *pEdgesCopy[MAX_QUEUE];
     int timeCount = 1;
@@ -1123,13 +999,15 @@ void SearchRoute()
         }
         timeInterval = remainTime / (double) timeCount;
         timeLimit = timeInterval;
-#ifdef _TEST_BFS_
+
+        #ifdef _TEST_TWO_LAYER_DFS_
         TEST("%d %f\n", timeCount, timeInterval);
         PrintStack(vexStack, stackTop);
-#endif
+        #endif
+
         goto RENEW;
     }
-#endif
+    #endif
 
     DEBUG("after search: definition\n");
     do
@@ -1144,13 +1022,13 @@ void SearchRoute()
             pEdge = pEdge->pNext;
         }
 
+        #if (defined _TWO_LAYER_DFS_) || (defined _STARTVEX_BALANCE_DFS_)
         RENEW:
+        #endif
 
         if (pEdge != NULL)
         {
-#ifdef _JUDGE_MAX_INTER_
-            TEST("InterSum: %d & MaxNum: %d\n", interSum, g_vexInfo[pEdge->edgeInfo.destVex]->maxInterNum);
-#endif
+
 
             if (0 == visit[pEdge->edgeInfo.destVex])    /* 如果该边指向的点从未走过,即没有成环 */
             {
@@ -1167,24 +1045,12 @@ void SearchRoute()
                 stackTopVex = vexStack[stackTop];
                 costSum += pEdge->edgeInfo.edgeCost;
 
-#ifdef _JUDGE_MAX_INTER_
-                if (IsInterVex(stackTopVex))
-                {
-                    interSum++;
-                    AddMaxInterToVexInfo(vexStack, stackTop);
-                }
-#endif
 
                 DEBUG("stackTop++\n");
                 if (pEdge->edgeInfo.destVex == g_endVex)    /* 走到终点 */
                 {
                     DEBUG("endVex\n");
                     int interNumCount = g_interNum;
-                    //costSum = 0;
-
-#ifdef _JUDGE_DISCARD_
-                    AddOnePassToVexInfo(vexStack, stackTop);
-#endif
 
                     for (i = 1; i < stackTop; i++)  // edgeStack[]的下标范围是[1]~[stackTop-1]
                     {
@@ -1192,7 +1058,6 @@ void SearchRoute()
                         {
                             interNumCount--;
                         }
-                        //costSum += edgeStack[i]->edgeCost;
                     }
 
                     if (0 == interNumCount)     /* 更新最小总权重 */
@@ -1207,14 +1072,9 @@ void SearchRoute()
                                 g_resultRoute[i-1] = edgeStack[i]->edgeID;
                             }
 
-                            if (g_edgeNum > 400)
-                            {
-                                break;
-                            }
-
-#ifdef _TEST_RESULT_
+                            #ifdef _TEST_RESULT_
                             printf("Right Route. Least totalCost: %d\n", g_totalCost);
-#endif
+                            #endif
                         }
                     }
 
@@ -1224,29 +1084,10 @@ void SearchRoute()
                     isFirstEdge = false;
                     costSum -= pEdge->edgeInfo.edgeCost;
 
-#ifdef _JUDGE_MAX_INTER_
-                    UpdateAllMaxInterNum(vexStack, stackTop);
-#endif
                 }
-#ifdef _JUDGE_MAX_INTER_
-                    else if (costSum >= g_totalCost
-                         || (g_vexInfo[stackTopVex]->isDone
-                             && interSum + g_vexInfo[stackTopVex]->maxInterNum < g_interNum))
-#else
                 else if (costSum >= g_totalCost)
-#endif
                 {
                     DEBUG("greater costSum\n");
-
-#ifdef _JUDGE_MAX_INTER_
-                    UpdateMaxInterNum(stackTopVex);
-                    if (IsInterVex(stackTopVex))
-                    {
-                        interSum--;
-                        SubMaxInterToVexInfo(vexStack, stackTop);
-                    }
-                    g_vexInfo[stackTopVex]->maxInterTmp = 0;
-#endif
 
                     visit[pEdge->edgeInfo.destVex] = 0;
                     stackTop--;
@@ -1261,14 +1102,23 @@ void SearchRoute()
                     isFirstEdge = true;
                 }
 
+                #if (defined _TWO_LAYER_DFS_) || (defined _STARTVEX_BALANCE_DFS_)
                 if (1 == stackTop)
                 {
                     timeLimit += timeInterval;
                     pStartEdge = pStartEdge->pNext;
                 }
+                #endif
             }
             endTime = clock();
             duration = (double)(endTime - g_startTime) / CLOCKS_PER_SEC;
+
+            #if (!defined _TWO_LAYER_DFS_) && (!defined _STARTVEX_BALANCE_DFS_)
+            if (duration > remainTime)
+            {
+                break;
+            }
+            #else
             if (duration > timeLimit)
             {
                 if (duration > remainTime)
@@ -1277,22 +1127,19 @@ void SearchRoute()
                 }
                 timeLimit += timeInterval;
 
-                for (i = 0; i < MAX_VEX; i++)
-                {
-                    visit[i] = 0;
-                }
-
-#ifdef _JUDGE_MAX_INTER_
-                interSum = 0;
-                ClearMaxInterToVexInfo(vexStack, stackTop);
-#endif
-
+                #ifdef _TWO_LAYER_DFS_
                 if (g_edgeNum > 400)
                 {
+                    for (i = 0; i < MAX_VEX; i++)
+                    {
+                    visit[i] = 0;
+                    }
                     pEdge = UpdateStackInfo(pEdges, vexStack, visit, edgeStack, &stackTop, &stackTopVex, &isFirstEdge, &costSum);
-#ifdef _TEST_BFS_
+
+                    #ifdef _TEST_TWO_LAYER_DFS_
                     PrintStack(vexStack, stackTop);
-#endif
+                    #endif
+
                     if (pEdge == NULL)
                     {
                         break;
@@ -1300,7 +1147,9 @@ void SearchRoute()
 
                     goto RENEW;
                 }
+                #endif
 
+                #ifdef _STARTVEX_BALANCE_DFS_
                 pStartEdge = pStartEdge->pNext;
                 if (NULL == pStartEdge)
                 {
@@ -1315,33 +1164,16 @@ void SearchRoute()
 
                 costSum = 0;
                 goto RENEW;
+                #endif
             }
+            #endif
         }
         else
         {
             DEBUG("pNode Null\n");
 
-#ifdef _JUDGE_MAX_INTER_
-            UpdateMaxInterNum(stackTopVex);
-            if (IsInterVex(stackTopVex))
-            {
-                interSum--;
-                SubMaxInterToVexInfo(vexStack, stackTop);
-            }
-            g_vexInfo[stackTopVex]->isDone = true;
-            g_vexInfo[stackTopVex]->maxInterTmp = 0;
-#endif
-
             visit[vexStack[stackTop]] = 0;
             stackTop--;
-
-#ifdef _JUDGE_DISCARD_
-            if (0 == g_vexInfo[stackTopVex]->passNum)
-            {
-                g_vexInfo[stackTopVex]->isDiscard = true;
-                TEST("Discard %d\n",stackTopVex);
-            }
-#endif
 
             if (stackTop != 0)
             {
@@ -1358,9 +1190,10 @@ void SearchRoute()
     } while (stackTop);
 }
 
+
 /****************************************
 函数名称：
-函数功能：计算时间间隔
+函数功能：计算均搜时间间隔
 输入参数：
 输出参数：
 返回值：
@@ -1381,7 +1214,7 @@ double GetTimeInterval(EdgeNode *pEdge, double remainTime)
 
 /****************************************
 函数名称：
-函数功能：
+函数功能：多层权重排序
 输入参数：
 输出参数：
 返回值：
@@ -1394,12 +1227,19 @@ int MultiLayerPseudoCost(EdgeInfo *pEdgeInfo, int layer)
         return 0;
     }
 
-
     int ret = MultiLayerPseudoCost(&(g_edgeList[pEdgeInfo->destVex].pFirstEdge->edgeInfo), layer - 1);
     return GetPseudoCost(pEdgeInfo) + ret;
 }
 
 
+/****************************************
+函数名称：
+函数功能：多次多层权重排序
+输入参数：
+输出参数：
+返回值：
+修改情况：
+*****************************************/
 void ReformMultiLayerAdjList(int loop, int layer)
 {
     int i = 0;
@@ -1471,15 +1311,20 @@ void ReformMultiLayerAdjList(int loop, int layer)
 }
 
 
-
-// ======================
-void spfa_SearchRoute_11()
+/****************************************
+函数名称：
+函数功能：均搜回溯拼接SPFA最短路,寻中符合要求的路径
+输入参数：
+输出参数：
+返回值：
+修改情况：
+*****************************************/
+void SearchRouteByBalanceSPFA()
 {
     clock_t endTime;
     double duration;
 
-
-    char visit[MAX_VEX] = {0};
+    int visit[MAX_VEX] = {0};
     int vexStack[MAX_VEX+1];
     int stackTop = 1;
     int stackTopVex = g_startVex;
@@ -1496,10 +1341,9 @@ void spfa_SearchRoute_11()
 
     int i = 0;
 
-    double remainTime = 9.9;
-    double timeInterval = GetTimeInterval_11(pEdge, remainTime);
+    double remainTime = MAX_TIME;
+    double timeInterval = GetTimeIntervalForBalanceSPFA(pEdge, remainTime);
     double timeLimit = timeInterval;
-    //cout<<timeInterval<<endl;
 
     int costSum = 0;
 
@@ -1522,8 +1366,6 @@ void spfa_SearchRoute_11()
 
         if (pEdge != NULL)
         {
-            //PrintStack(vexStack, stackTop);
-
             if (0 == visit[pEdge->edgeInfo.destVex])
             {
                 visit[pEdge->edgeInfo.destVex] = 1;
@@ -1548,7 +1390,6 @@ void spfa_SearchRoute_11()
                     {
                         if (costSum < g_totalCost)
                         {
-                            //memset(visitInt, 0, sizeof(visitInt));
                             int n = 0;
                             IntNode *pIntVex = NULL;
                             IntNode *pIntEdge = NULL;
@@ -1558,29 +1399,18 @@ void spfa_SearchRoute_11()
                                 pIntEdge = edgeStack[i]->edgeSegHead;
                                 while (pIntEdge != NULL)
                                 {
-                                    // if (visitInt[pIntVex->data] == 0)
-                                    // {
                                     g_resultRoute[n] = pIntEdge->data;
                                     pIntEdge = pIntEdge->pNext;
                                     n++;
-                                    //visitInt[pIntVex->data] = 1;
-                                    //pIntVex = pIntVex->pNext;
-                                    //}
-                                    //else
-                                    //{
-                                    //    goto WRONG_ANSWER;
-                                    //}
                                 }
                             }
                             g_resultRoute[n] = -1;
                             g_totalCost = costSum;
                             #ifdef _TEST_RESULT_
-                            cout << "OKOKOKOKOK " << g_totalCost << endl;
+                            cout << "New Least Cost " << g_totalCost << endl;
                             #endif
-                            //PrintResultFile(NULL);
                         }
                     }
-                    WRONG_ANSWER:
 
                     visit[g_endVex] = 0;
                     stackTop--;
@@ -1675,8 +1505,15 @@ void spfa_SearchRoute_11()
 }
 
 
-
-double GetTimeInterval_11(EdgeNode *pEdge, double remainTime)
+/****************************************
+函数名称：
+函数功能：计算<均搜回溯拼接SPFA最短路>的均搜时间间隔
+输入参数：
+输出参数：
+返回值：
+修改情况：
+*****************************************/
+double GetTimeIntervalForBalanceSPFA(EdgeNode *pEdge, double remainTime)
 {
     int count = 0;
     while (pEdge != NULL)
@@ -1689,3 +1526,90 @@ double GetTimeInterval_11(EdgeNode *pEdge, double remainTime)
 }
 
 
+/****************************************
+函数名称：
+函数功能：测试打印
+输入参数：
+输出参数：
+返回值：
+修改情况：
+*****************************************/
+void PrintSPFALeastCost(int endVex)
+{
+    if (g_spfaLeastCost[endVex] == INF)
+        printf("NA\n");
+    else
+        printf("%d\n", g_spfaLeastCost[endVex]);
+}
+
+
+void PrintPathByVex(int i)
+{
+    if(g_vexPath[i] != -1)
+        PrintPathByVex(g_vexPath[i]);
+    cout<<i<<' ';
+}
+
+
+void PrintPathByEdge(int i)
+{
+    if(g_edgePath[i] != -1)
+    {
+        PrintPathByEdge(g_edgePath[i]);
+        cout<<'|';
+    }
+    cout<<i;
+}
+
+
+void PrintStack(int vexStack[], int stackTop)
+{
+    int i = 1;
+    for (i = 1; i <= stackTop; i++)
+    {
+        cout<<vexStack[i]<<" ";
+    }
+    cout<<endl;
+}
+
+
+void PrintList()
+{
+    EdgeNode *pNode = NULL;
+    for (int i = 0; i < MAX_VEX; i++)
+    {
+        pNode = g_spfaEdgeList[i].pFirstEdge;
+        if (pNode == NULL)
+        {
+            continue;
+        }
+        while (pNode != NULL)
+        {
+            cout << pNode->edgeInfo.srcVex << "->" << pNode->edgeInfo.destVex << endl;
+            pNode = pNode->pNext;
+        }
+        cout << endl;
+    }
+}
+
+
+void PrintIntNode(IntNode *pHead)
+{
+    IntNode *pNode = pHead;
+    while (pNode != NULL)
+    {
+        cout<<pNode->data<<" ";
+        pNode = pNode->pNext;
+    }
+    cout<<endl;
+}
+
+
+void PrintVisit(int visit[])
+{
+    for (int i = 0; i < 50; i++)
+    {
+        cout<<visit[i];
+    }
+    cout<<endl;
+}
