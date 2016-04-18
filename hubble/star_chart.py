@@ -2,6 +2,7 @@
 
 """Star chart: take a snapshot of the universe(graph).
 
+Star chart 对题目中的图进行可视化.
 - input
     - `python star_chart.py topo.csv demand.csv [-a answer.csv]`
     - topo: `topo.csv`, contains graph

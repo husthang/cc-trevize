@@ -2,6 +2,9 @@
 
 """Voyager: find all possible routes in the universe(graph).
 
+Voyager (旅行者): 寻找图中所有可能的路线.
+
+基于 NetworkX. 运行时间可能很长, 可能的路线也可能相当多.
 - input
     - topo: `topo.csv`, contains graph
     - demand: `demand.csv`, contains `s, t, v1(V')`
