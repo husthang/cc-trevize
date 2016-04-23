@@ -98,34 +98,71 @@ def trevize(G, s, t, v1, verbose):
     prob = LpProblem("cc problem", LpMinimize)
 
     x = {}
-
-    prob += 0, "no weight for MVP"
-
     # init variable list(edges 0/1)
+    edge_dict = {}
     for edge in G.edges_iter():
         # print(edge)
         # print(G[edge[0]][edge[1]]["label"])
+        edge_dict[G[edge[0]][edge[1]]["label"]] = edge
         x[G[edge[0]][edge[1]]["label"]] = LpVariable("edges{}".format(G[edge[0]][edge[1]]["label"]), 0, 1, LpInteger)
-
-    print(x)
-    # s/t/v1 constaints
+    # s/t/v1 constraints
     prob += lpSum(x[G[edge[0]][edge[1]]["label"]] for edge in G.out_edges(s)) == 1, "s"
     prob += lpSum(x[G[edge[0]][edge[1]]["label"]] for edge in G.in_edges(t)) == 1, "t"
     for v in v1:
         prob += lpSum(x[G[edge[0]][edge[1]]["label"]] for edge in G.out_edges(v)) == 1, ""
         prob += lpSum(x[G[edge[0]][edge[1]]["label"]] for edge in G.in_edges(v)) == 1, ""
-
+    # other nodes constraints: in - out = 0; in <= 1
     for v in G.nodes_iter():
         if v not in v1 + [s, t]:
+            prob += lpSum(x[G[edge[0]][edge[1]]["label"]] for edge in G.out_edges(v)) - lpSum(x[G[edge[0]][edge[1]]["label"]] for edge in G.in_edges(v)) == 0, ""
             prob += lpSum(x[G[edge[0]][edge[1]]["label"]] for edge in G.out_edges(v)) <= 1, ""
-            # prob += lpSum(x[G[edge[0]][edge[1]]["label"]] for edge in G.out_edges(v)) <= 1, ""
 
+    # the optimize target: total weight
+    prob += 0, "no weight for MVP"
 
-    prob.writeLP("ip-trevize.lp")
-    prob.solve()
-    print(LpStatus[prob.status])
-    for e in prob.variables():
-        print(e.name, '=', e.varValue)
+    # prob.writeLP("ip-trevize.lp")
+
+    def check_IP_path(path_edge_list, edge_dict, s, t):
+        """Check if the path is valid path.
+
+        - input: edge list from IP.
+        - process: check cycles in path.
+            i.e. check length of s-t. == len(edge_list) means no cycle.
+        - output: valid path route or return invalid path from s to t."""
+        # print(path_edge_list)
+        begin_v = s
+        path = []
+        while begin_v is not t:
+            for e in path_edge_list:
+                e = int(e)  # transform str to int
+                if edge_dict[e][0] is begin_v:
+                    begin_v = edge_dict[e][1]
+                    path.append(str(e))
+        # print(path)
+        if len(path) == len(path_edge_list):
+            return "|".join(path)
+        else:  # forming cycle in path
+            return path
+
+    while True:
+        prob.solve()
+
+        # output
+        # print(LpStatus[prob.status])
+        path_edge_list = []
+        for e in prob.variables():
+            if e.varValue == 1:
+                # print(e.name, '=', e.varValue)
+                path_edge_list.append(e.name[5:])
+        # print(path_edge_list)
+        check_result = check_IP_path(path_edge_list, edge_dict, s, t)
+        # print(type(check_result))
+        if type(check_result) is list:
+            # print(check_result)
+            prob += lpSum(x[int(edge)] for edge in check_result) <= len(check_result) - 1, ""
+        else:
+            print(check_result)
+            break
     return
 
 def write_csv(f, answer, format, verbose):
