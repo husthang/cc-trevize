@@ -95,7 +95,7 @@ def trevize(G, s, t, v1, verbose):
         - check and output
     output: valid path list `valid_paths`
     """
-    prob = LpProblem("cc problem", LpMinimize)
+    prob = LpProblem("cc problem", LpMinimize)  # minimize path weight
 
     x = {}
     # init variable list(edges 0/1)
@@ -132,9 +132,10 @@ def trevize(G, s, t, v1, verbose):
                           for edge in G.out_edges(v)) <= 1, ""
 
     # the optimize target: total weight
-    prob += 0, "no weight for MVP"
+    prob += lpSum(x[G[edge[0]][edge[1]]["label"]] * G[edge[0]][edge[1]]["weight"]
+                  for edge in G.edges_iter()), "weight for MVP"
 
-    # prob.writeLP("ip-trevize.lp")
+    # prob.writeLP("ip-trevize.lp")  # output LP
 
     def check_IP_path(path_edge_list, edge_dict, s, t):
         """Check if the path is valid path.
@@ -144,11 +145,13 @@ def trevize(G, s, t, v1, verbose):
             i.e. check length of s-t. == len(edge_list) means no cycle.
         - output: valid path route or return invalid path from s to t."""
         # print(s, t)
+        # print(path_edge_list)
         begin_v = s
         path = []
         edge_list = path_edge_list[:]
-        while begin_v is not t:
+        while begin_v != t:
             # print(path_edge_list)
+            # print(len(edge_list))
             for i in range(len(edge_list)):
                 e = edge_list[i]
                 if edge_dict[e][0] == begin_v:
@@ -163,12 +166,13 @@ def trevize(G, s, t, v1, verbose):
         else:  # forming cycle in path
             return path
 
-    num_iter = 0  # printout number of iterations
+    # num_iter = 0  # printout number of iterations
     while True:
         prob.solve(PULP_CBC_CMD())
         # see ref at https://pythonhosted.org/PuLP/solvers.html#pulp.solvers.COIN_CMD
         # output
-        # print(LpStatus[prob.status])
+        if verbose:
+            print(LpStatus[prob.status])
         path_edge_list = []
         for e in prob.variables():
             if e.varValue == 1:
@@ -180,12 +184,13 @@ def trevize(G, s, t, v1, verbose):
         if type(check_result) is list:
             # print(check_result)
             prob += lpSum(x[int(edge)] for edge in check_result) <= len(check_result) - 1, ""
-            num_iter += 1
-            if num_iter % 10 == 0:
-                print(num_iter)
+            # num_iter += 1
+            # if num_iter % 10 == 0:
+            #     print(num_iter)
         else:
-            print("iter: {}".format(num_iter))
-            print(check_result)
+            # print("iter: {}".format(num_iter))
+            if verbose:
+                print(check_result)
             return(check_result)
     return
 
@@ -217,7 +222,8 @@ def main():
     answer = trevize(G, s, t, v1, verbose)
     o.write(answer)
     t1 = time.time()
-    print("time: {}".format(t1-t0))
+    if verbose:
+        print("time: {}".format(t1-t0))
 
     return 0
 
