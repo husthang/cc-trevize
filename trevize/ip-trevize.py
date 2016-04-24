@@ -104,18 +104,32 @@ def trevize(G, s, t, v1, verbose):
         # print(edge)
         # print(G[edge[0]][edge[1]]["label"])
         edge_dict[G[edge[0]][edge[1]]["label"]] = edge
-        x[G[edge[0]][edge[1]]["label"]] = LpVariable("edges{}".format(G[edge[0]][edge[1]]["label"]), 0, 1, LpInteger)
+        x[G[edge[0]][edge[1]]["label"]] = LpVariable("edges{}"\
+            .format(G[edge[0]][edge[1]]["label"]), 0, 1, LpInteger)
     # s/t/v1 constraints
-    prob += lpSum(x[G[edge[0]][edge[1]]["label"]] for edge in G.out_edges(s)) == 1, "s"
-    prob += lpSum(x[G[edge[0]][edge[1]]["label"]] for edge in G.in_edges(t)) == 1, "t"
+    prob += lpSum(x[G[edge[0]][edge[1]]["label"]]
+                  for edge in G.out_edges(s)) == 1, "s out"
+    # prob += lpSum(x[G[edge[0]][edge[1]]["label"]]
+    #               for edge in G.in_edges(s)) == 0, "s in"
+    prob += lpSum(x[G[edge[0]][edge[1]]["label"]]
+                  for edge in G.in_edges(t)) == 1, "t in"
+    # prob += lpSum(x[G[edge[0]][edge[1]]["label"]]
+    #               for edge in G.out_edges(t)) == 0, "t out is 0"
     for v in v1:
-        prob += lpSum(x[G[edge[0]][edge[1]]["label"]] for edge in G.out_edges(v)) == 1, ""
-        prob += lpSum(x[G[edge[0]][edge[1]]["label"]] for edge in G.in_edges(v)) == 1, ""
+        prob += lpSum(x[G[edge[0]][edge[1]]["label"]]
+                      for edge in G.out_edges(v)) == 1, ""
+        prob += lpSum(x[G[edge[0]][edge[1]]["label"]]
+                      for edge in G.in_edges(v)) == 1, ""
     # other nodes constraints: in - out = 0; in <= 1
     for v in G.nodes_iter():
         if v not in v1 + [s, t]:
-            prob += lpSum(x[G[edge[0]][edge[1]]["label"]] for edge in G.out_edges(v)) - lpSum(x[G[edge[0]][edge[1]]["label"]] for edge in G.in_edges(v)) == 0, ""
-            prob += lpSum(x[G[edge[0]][edge[1]]["label"]] for edge in G.out_edges(v)) <= 1, ""
+            prob += (lpSum(x[G[edge[0]][edge[1]]["label"]]
+                          for edge in G.out_edges(v))
+                    -
+                    lpSum(x[G[edge[0]][edge[1]]["label"]]
+                          for edge in G.in_edges(v))) == 0, ""
+            prob += lpSum(x[G[edge[0]][edge[1]]["label"]]
+                          for edge in G.out_edges(v)) <= 1, ""
 
     # the optimize target: total weight
     prob += 0, "no weight for MVP"
@@ -129,79 +143,51 @@ def trevize(G, s, t, v1, verbose):
         - process: check cycles in path.
             i.e. check length of s-t. == len(edge_list) means no cycle.
         - output: valid path route or return invalid path from s to t."""
-        # print(path_edge_list)
+        # print(s, t)
         begin_v = s
         path = []
+        edge_list = path_edge_list[:]
         while begin_v is not t:
-            for e in path_edge_list:
-                e = int(e)  # transform str to int
-                if edge_dict[e][0] is begin_v:
+            # print(path_edge_list)
+            for i in range(len(edge_list)):
+                e = edge_list[i]
+                if edge_dict[e][0] == begin_v:
                     begin_v = edge_dict[e][1]
                     path.append(str(e))
-        # print(path)
+                    # print(path, begin_v, t)
+                    del edge_list[i]
+                    break
+            # print(path)
         if len(path) == len(path_edge_list):
             return "|".join(path)
         else:  # forming cycle in path
             return path
 
+    num_iter = 0  # printout number of iterations
     while True:
-        prob.solve()
-
+        prob.solve(PULP_CBC_CMD())
+        # see ref at https://pythonhosted.org/PuLP/solvers.html#pulp.solvers.COIN_CMD
         # output
         # print(LpStatus[prob.status])
         path_edge_list = []
         for e in prob.variables():
             if e.varValue == 1:
                 # print(e.name, '=', e.varValue)
-                path_edge_list.append(e.name[5:])
+                path_edge_list.append(int(e.name[5:]))
         # print(path_edge_list)
         check_result = check_IP_path(path_edge_list, edge_dict, s, t)
         # print(type(check_result))
         if type(check_result) is list:
             # print(check_result)
             prob += lpSum(x[int(edge)] for edge in check_result) <= len(check_result) - 1, ""
+            num_iter += 1
+            if num_iter % 10 == 0:
+                print(num_iter)
         else:
+            print("iter: {}".format(num_iter))
             print(check_result)
-            break
+            return(check_result)
     return
-
-def write_csv(f, answer, format, verbose):
-    """Write the answer to csv file.
-
-    proposed format:
-        - 'NA' for no answer;
-        - 'e[1]|e[2]|..|e[n]' for shortest path, e[i] is label of edge
-    parameters:
-        - f: file output
-        - answer: NA or path list `paths`
-        - format:
-            - 'all' to output all paths;
-            - 'shortest' to output shortest route (proposed `result.csv`)
-        - verbose: set to True to printout more information
-    """
-    if answer is "NA":
-        if verbose:
-            print(answer)
-        f.write(answer)
-        return 0
-    # else
-    paths, G = answer
-    for path in paths:
-        route = ""
-        weight = 0
-        for i in range(len(path) - 1):
-            # as used i+1
-            route += str(G.edge[path[i]][path[i+1]]['label']) + '|'
-            weight += G[path[i]][path[i+1]]['weight']
-        if verbose:
-            print("{}, {}".format(str(weight), route[:-1]))
-        if format is 'shortest':
-            # only write first result, no weight output
-            f.write("{}".format(route[:-1]))
-            return 0
-        f.write("{}, {}\n".format(str(weight), route[:-1]))
-
-    return 0
 
 
 def main():
@@ -229,7 +215,7 @@ def main():
     global t0
     t0 = time.time()
     answer = trevize(G, s, t, v1, verbose)
-    # write_csv(o, answer, 'all', verbose)
+    o.write(answer)
     t1 = time.time()
     print("time: {}".format(t1-t0))
 
