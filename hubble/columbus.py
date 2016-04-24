@@ -72,6 +72,7 @@ def columbus(G, s, t, v1, answer):
     output: printout and return string"""
     vertices_in_path = [s]
     weight_in_path = 0
+    # print(answer)
     for edge_label in answer:
         # print('edge label,', edge_label)
         v_out = vertices_in_path[-1]
@@ -80,13 +81,14 @@ def columbus(G, s, t, v1, answer):
         for v_in in out_edges:
             # print(v_in, out_edges[v_in])
             for edge_num in out_edges[v_in]:
-                if out_edges[v_in][edge_num]['label'] is edge_label:
+                if out_edges[v_in][edge_num]['label'] == edge_label:
                     # print('equal', out_edges[v_in][edge_num], edge_label)
                     weight_in_path += out_edges[v_in][edge_num]['weight']
                     vertices_in_path.append(v_in)
                     # print(vertices_in_path)
     else:  # finish input: successful got to t (sink)
-        if len(set(vertices_in_path)) is not len(vertices_in_path):
+        # print(vertices_in_path)
+        if len(set(vertices_in_path)) != len(vertices_in_path):
             # check duplicates
             print("WA, duplicate vertices.")
             return_str = json.dumps(["WA", "duplicate vertices."])
