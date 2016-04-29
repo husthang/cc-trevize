@@ -166,9 +166,11 @@ def trevize(G, s, t, v1, verbose):
         else:  # forming cycle in path
             return path
 
-    # num_iter = 0  # printout number of iterations
+    num_iter = 0  # printout number of iterations
     while True:
-        prob.solve(PULP_CBC_CMD())
+        num_iter += 1
+        prob.solve(GUROBI_CMD())
+        # prob.solve(PULP_CBC_CMD())
         # see ref at https://pythonhosted.org/PuLP/solvers.html#pulp.solvers.COIN_CMD
         # output
         if verbose:
@@ -184,12 +186,11 @@ def trevize(G, s, t, v1, verbose):
         if type(check_result) is list:
             # print(check_result)
             prob += lpSum(x[int(edge)] for edge in check_result) <= len(check_result) - 1, ""
-            # num_iter += 1
             # if num_iter % 10 == 0:
             #     print(num_iter)
         else:
-            # print("iter: {}".format(num_iter))
             if verbose:
+                print("iter: {}".format(num_iter))
                 print(check_result)
             return(check_result)
     return
