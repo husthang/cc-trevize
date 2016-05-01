@@ -104,8 +104,11 @@ def trevize(G, s, t, v1, verbose):
         # print(edge)
         # print(G[edge[0]][edge[1]]["label"])
         edge_dict[G[edge[0]][edge[1]]["label"]] = edge
-        x[G[edge[0]][edge[1]]["label"]] = LpVariable("edges{}"\
-            .format(G[edge[0]][edge[1]]["label"]), 0, 1, LpInteger)
+        label = G[edge[0]][edge[1]]["label"]
+        x[label] = LpVariable("edges{}".format(label), 0, 1, LpInteger)
+    for node in G.nodes_iter():
+        x['pi'+str(node)] = LpVariable("pi{}".format(node), 0, None, LpInteger)
+    # print(x) # test variable list
     # s/t/v1 constraints
     prob += lpSum(x[G[edge[0]][edge[1]]["label"]]
                   for edge in G.out_edges(s)) == 1, "s out"
@@ -130,12 +133,21 @@ def trevize(G, s, t, v1, verbose):
                           for edge in G.in_edges(v))) == 0, ""
             prob += lpSum(x[G[edge[0]][edge[1]]["label"]]
                           for edge in G.out_edges(v)) <= 1, ""
+    # pi constraints (Andrade 2013)
+    prob += x['pi'+str(s)] == 0, "pi(s) = 0"
+    M = 10000  # enough big num
+    for edge in G.edges_iter():
+        prob += x['pi'+str(edge[1])] - x['pi'+str(edge[0])] <=\
+            G[edge[0]][edge[1]]["weight"] + M*(1-x[G[edge[0]][edge[1]]["label"]])
+        prob += x['pi'+str(edge[1])] - x['pi'+str(edge[0])] >=\
+            G[edge[0]][edge[1]]["weight"] - M*(1-x[G[edge[0]][edge[1]]["label"]])
 
     # the optimize target: total weight
-    prob += lpSum(x[G[edge[0]][edge[1]]["label"]] * G[edge[0]][edge[1]]["weight"]
+    prob += lpSum(x[G[edge[0]][edge[1]]["label"]] *
+                  G[edge[0]][edge[1]]["weight"]
                   for edge in G.edges_iter()), "weight for MVP"
 
-    # prob.writeLP("ip-trevize.lp")  # output LP
+    prob.writeLP("ip-trevize.lp")  # output LP
 
     def check_IP_path(path_edge_list, edge_dict, s, t):
         """Check if the path is valid path.
@@ -169,15 +181,15 @@ def trevize(G, s, t, v1, verbose):
     num_iter = 0  # printout number of iterations
     while True:
         num_iter += 1
-        prob.solve(GUROBI_CMD())
-        # prob.solve(PULP_CBC_CMD())
-        # see ref at https://pythonhosted.org/PuLP/solvers.html#pulp.solvers.COIN_CMD
+        prob.solve(GUROBI_CMD(msg=False))  # Gurobi interface
+        # prob.solve(PULP_CBC_CMD())  # open source solver
+        # ref: https://pythonhosted.org/PuLP/solvers.html#pulp.solvers.COIN_CMD
         # output
         if verbose:
             print(LpStatus[prob.status])
         path_edge_list = []
         for e in prob.variables():
-            if e.varValue == 1:
+            if e.varValue == 1 and 'edge' in e.name:
                 # print(e.name, '=', e.varValue)
                 path_edge_list.append(int(e.name[5:]))
         # print(path_edge_list)
@@ -185,7 +197,8 @@ def trevize(G, s, t, v1, verbose):
         # print(type(check_result))
         if type(check_result) is list:
             # print(check_result)
-            prob += lpSum(x[int(edge)] for edge in check_result) <= len(check_result) - 1, ""
+            prob += lpSum(x[int(edge)] for edge in check_result) <=\
+                    len(check_result) - 1, ""
             # if num_iter % 10 == 0:
             #     print(num_iter)
         else:
