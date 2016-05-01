@@ -25,10 +25,9 @@
         - `log.txt`
         - `/algorithm_x/case_y.csv`
     - features of the test case [not implemented]
-    - result of algorithms [not implemented]
-        - time
-        - route
-        - weight
+    - result of algorithms
+        - result: AC/WA
+        - detail: weight/WA reason
 
 """
 
@@ -83,7 +82,7 @@ def process(algorithms_list, cases, plot=False):
     parameter_file.close()
     log_file = open(output_dir + '/' + 'log.txt', 'w')
     log_file.write(timestamp + '\n')
-    log_file.write('algorithm, case, time' + '\n')
+    log_file.write('algorithm, case, time, result, detail' + '\n')
 
     # get cases dir list
     list_cases = os.listdir(cases)
@@ -97,8 +96,9 @@ def process(algorithms_list, cases, plot=False):
                 checked_cases.append(path)
 
     # run algorithms on cases, and write log
-    from subprocess import call
+    from subprocess import call, check_output
     import re
+    import ast
 
     for algorithm in algorithms_list:
         is_python_algorithm = False
@@ -131,9 +131,13 @@ def process(algorithms_list, cases, plot=False):
             t1 = time.time()
             runtime = t1 - t0
             # print(runtime)  # for debugging
-
-            log_file.write('{algorithm}, {case}, {t}\n'.format(
-                algorithm=algorithm_name, case=case_name, t=runtime))
+            # printout result of Columbus module
+            result = check_output(["python", "hubble/columbus.py",
+                           topo, demand, output])
+            result = ast.literal_eval(result.decode('utf-8')[:-1])
+            # [:-1] to escape '\n', ast.literal_eval instead of json to parse
+            log_file.write('{}, {}, {}, {}, {}\n'.format(
+                algorithm_name, case_name, runtime, result[0], result[1]))
 
 
 if __name__ == '__main__':

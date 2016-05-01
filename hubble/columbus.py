@@ -16,6 +16,7 @@ Columbus: 检查结果是否正确. 给出适当的输出
 - output
     - print to stdout
     - return answer json string (as output module in test framework Gaia)
+        - format: "[AC/WA, length/WA reason]"
 """
 
 # Author: Mo Frank Hu (mofrankhu@gmail.com)
@@ -24,7 +25,7 @@ Columbus: 检查结果是否正确. 给出适当的输出
 import networkx as nx
 import json
 
-def read_csv(g, stv1, path):
+def read_csv(g, stv1, path, verbose):
     """Read the csv input files.
 
     input: two csv input file
@@ -58,11 +59,12 @@ def read_csv(g, stv1, path):
     for i in range(len(answer)):
         answer[i] = int(answer[i])
 
-    print("s {}, t {}, v1 {}, answer_edges {}".format(s, t, v1, answer))
+    if verbose:
+        print("s {}, t {}, v1 {}, answer_edges {}".format(s, t, v1, answer))
     return G, s, t, v1, answer
 
 
-def columbus(G, s, t, v1, answer):
+def columbus(G, s, t, v1, answer, verbose):
     """Check answer path.
     input: list of edges.
     process:
@@ -90,13 +92,17 @@ def columbus(G, s, t, v1, answer):
         # print(vertices_in_path)
         if len(set(vertices_in_path)) != len(vertices_in_path):
             # check duplicates
-            print("WA, duplicate vertices.")
+
+            if verbose:
+                print("WA, duplicate vertices.")
             return_str = json.dumps(["WA", "duplicate vertices."])
         else:
-            print("length:", len(set(vertices_in_path)), len(vertices_in_path))
+            if verbose:
+                print("length:", len(set(vertices_in_path)), len(vertices_in_path))
         if set(v1) <= set(vertices_in_path):
             # check v in v1
-            print("vertices in V' is all included.")
+            if verbose:
+                print("vertices in V' is all included.")
             return_str = json.dumps(["AC", weight_in_path])
         else:
             return_str = json.dumps(["WA", "V' not included."])
@@ -115,19 +121,21 @@ def main():
                         help='`demand.csv`, contains s, t, v1.')
     parser.add_argument('answer',
                         help='`answer.csv`, contains path')
+    parser.add_argument('-v', '--verbose',
+                        help='verbose printout',
+                        action="store_true")
+
     args = parser.parse_args()
     topo = open(args.topo)
     demand = open(args.demand)
     answer = open(args.answer)
-    G, s, t, v1, answer = read_csv(topo, demand, answer)  # read file
+    verbose = args.verbose
+    G, s, t, v1, answer = read_csv(topo, demand, answer, verbose)  # read file
 
-    result = json.loads(columbus(G, s, t, v1, answer))
-    if result[0] == "AC":
-        print("AC, weight:", result[1])
-    else:
-        print(result[0], result[1])
+    result = json.loads(columbus(G, s, t, v1, answer, verbose))
+    print(result)
 
-    return result
+    return 0
 
 
 if __name__ == '__main__':
