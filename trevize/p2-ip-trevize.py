@@ -42,20 +42,20 @@ def read_csv(g, stv1):
     stv1_list = re.findall(num, line1)
     for i in range(len(stv1_list)):
         stv1_list[i] = int(stv1_list[i])
-    s = stv1_list[0]
-    t = stv1_list[1]
-    v1 = stv1_list[2:]
+    s = stv1_list[1]
+    t = stv1_list[2]
+    v1 = stv1_list[3:]
     # read line 2
     line2 = stv1.readline()
     stv2_list = re.findall(num, line2)
     for i in range(len(stv2_list)):
         stv2_list[i] = int(stv2_list[i])
-    s = stv2_list[0]
-    t = stv2_list[1]
-    v2 = stv2_list[2:]
+    s = stv2_list[1]
+    t = stv2_list[2]
+    v2 = stv2_list[3:]
 
     # read topo.csv
-    G = nx.DiGraph()
+    G = nx.MultiDiGraph()
     for line in g:
         nums = re.findall(num, line)
 
@@ -66,15 +66,7 @@ def read_csv(g, stv1):
             # print("s/t ", line)
             continue
 
-        # solve multigraph: find best edge and apply
-        try:
-            exist_weight = G[nums[1]][nums[2]]['weight']
-        except KeyError:
-            G.add_edge(nums[1], nums[2], weight=nums[3], label=nums[0])
-        else:
-            if exist_weight > nums[3]:  # need update
-                G[nums[1]][nums[2]]['weight'] = nums[3]
-                G[nums[1]][nums[2]]['label'] = nums[0]
+        G.add_edge(nums[1], nums[2], weight=nums[3], label=nums[0])
 
     for node in G.nodes():
         if (node is not s) and (node is not t):
@@ -103,53 +95,60 @@ def trevize(G, s, t, v1, verbose):
 
     x = {}
     # init variable list(edges 0/1)
-    edge_dict = {}
-    for edge in G.edges_iter():
-        # print(edge)
-        # print(G[edge[0]][edge[1]]["label"])
-        edge_dict[G[edge[0]][edge[1]]["label"]] = edge
-        label = G[edge[0]][edge[1]]["label"]
+    edge_dict = {}  # {label: in, out, weight}
+    for u, v, edata in G.edges_iter(data=True):
+        # print(u, v, edata['label'], edata['weight'])
+        label = edata['label']
+        weight = edata['weight']
+        edge_dict[label] = (u, v, weight)
         x[label] = LpVariable("edges{}".format(label), 0, 1, LpInteger)
     for node in G.nodes_iter():
         x['pi'+str(node)] = LpVariable("pi{}".format(node), 0, None, LpInteger)
-    # print(x) # test variable list
+
     # s/t/v1 constraints
-    prob += lpSum(x[G[edge[0]][edge[1]]["label"]]
-                  for edge in G.out_edges(s)) == 1, "s out"
-    # prob += lpSum(x[G[edge[0]][edge[1]]["label"]]
-    #               for edge in G.in_edges(s)) == 0, "s in"
-    prob += lpSum(x[G[edge[0]][edge[1]]["label"]]
-                  for edge in G.in_edges(t)) == 1, "t in"
-    # prob += lpSum(x[G[edge[0]][edge[1]]["label"]]
-    #               for edge in G.out_edges(t)) == 0, "t out is 0"
+    prob += lpSum(x[G[edge[0]][edge[1]][e]["label"]]
+                  for edge in G.out_edges(s)
+                  for e in G[edge[0]][edge[1]]
+                  ) == 1, "s out"
+    prob += lpSum(x[G[edge[0]][edge[1]][e]["label"]]
+                  for edge in G.in_edges(t)
+                  for e in G[edge[0]][edge[1]]
+                  ) == 1, "t in"
     for v in v1:
-        prob += lpSum(x[G[edge[0]][edge[1]]["label"]]
-                      for edge in G.out_edges(v)) == 1, ""
-        prob += lpSum(x[G[edge[0]][edge[1]]["label"]]
-                      for edge in G.in_edges(v)) == 1, ""
+        prob += lpSum(x[G[edge[0]][edge[1]][e]["label"]]
+                    for edge in G.out_edges(v)
+                    for e in G[edge[0]][edge[1]]
+                    ) == 1, ""
+        prob += lpSum(x[G[edge[0]][edge[1]][e]["label"]]
+                    for edge in G.in_edges(v)
+                    for e in G[edge[0]][edge[1]]
+                    ) == 1, ""
+
     # other nodes constraints: in - out = 0; in <= 1
     for v in G.nodes_iter():
         if v not in v1 + [s, t]:
-            prob += (lpSum(x[G[edge[0]][edge[1]]["label"]]
-                          for edge in G.out_edges(v))
+            prob += (lpSum(x[G[edge[0]][edge[1]][e]["label"]]
+                            for edge in G.out_edges(v)
+                            for e in G[edge[0]][edge[1]])
                     -
-                    lpSum(x[G[edge[0]][edge[1]]["label"]]
-                          for edge in G.in_edges(v))) == 0, ""
-            prob += lpSum(x[G[edge[0]][edge[1]]["label"]]
-                          for edge in G.out_edges(v)) <= 1, ""
+                    lpSum(x[G[edge[0]][edge[1]][e]["label"]]
+                            for edge in G.in_edges(v)
+                            for e in G[edge[0]][edge[1]])) == 0, ""
+            prob += lpSum(x[G[edge[0]][edge[1]][e]["label"]]
+                            for edge in G.in_edges(v)
+                            for e in G[edge[0]][edge[1]]) <= 1, ""
     # pi constraints (Andrade 2013)
     prob += x['pi'+str(s)] == 0, "pi(s) = 0"
     M = 10000  # enough big num
-    for edge in G.edges_iter():
-        prob += x['pi'+str(edge[1])] - x['pi'+str(edge[0])] <=\
-            G[edge[0]][edge[1]]["weight"] + M*(1-x[G[edge[0]][edge[1]]["label"]])
-        prob += x['pi'+str(edge[1])] - x['pi'+str(edge[0])] >=\
-            G[edge[0]][edge[1]]["weight"] - M*(1-x[G[edge[0]][edge[1]]["label"]])
+    for u, v, edata in G.edges_iter(data=True):
+        prob += x['pi'+str(v)] - x['pi'+str(u)] <=\
+            edata["weight"] + M*(1-x[edata["label"]])
+        prob += x['pi'+str(v)] - x['pi'+str(u)] >=\
+            edata["weight"] - M*(1-x[edata["label"]])
 
     # the optimize target: total weight
-    prob += lpSum(x[G[edge[0]][edge[1]]["label"]] *
-                  G[edge[0]][edge[1]]["weight"]
-                  for edge in G.edges_iter()), "weight for MVP"
+    prob += lpSum(x[label] * edge_dict[label][2]
+                  for label in edge_dict), "weight for MVP"
 
     # prob.writeLP("ip-trevize.lp")  # output LP
 
