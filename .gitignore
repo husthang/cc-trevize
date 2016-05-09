@@ -2,7 +2,7 @@
 graph_builder/graph_builder
 *wiki/
 test/
-submission/
+#submission/
 *.ipynb
 *.DS_Store
 
