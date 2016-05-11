@@ -19,7 +19,7 @@ const int MAX_EDGE    = 40000;           // 最大边数
 const int MAX_INTER   = 100;             // 最大v'中间点数
 //const int MAX_STR     = 1024;           // 缺省字符串数
 const int MAX_QUEUE   = 1;              // 最大BFS均搜层数
-const double MAX_TIME = 10;//4.5;            // 最大搜索时限
+const double MAX_TIME = 4.5;            // 最大搜索时限
 
 
 /* 全局变量 */
@@ -71,6 +71,13 @@ void search_route(char *topo[MAX_EDGE_NUM], int edge_num, char *demand[MAX_DEMAN
     #ifdef _TEST_RESULT_
     PrintResultFile();
     #endif
+    
+    if (-1 == g_resultRoute[0])
+    {
+        clear_result();
+        return;
+    }
+
     CopyResult(result1, &result_num1);
     i = 0;
     while (result1[i] != -1)
@@ -89,6 +96,13 @@ void search_route(char *topo[MAX_EDGE_NUM], int edge_num, char *demand[MAX_DEMAN
     #ifdef _TEST_RESULT_
     PrintResultFile();
     #endif
+
+    if (-1 == g_resultRoute[0])
+    {
+        clear_result();
+        return;
+    }
+
     CopyResult(result2, &result_num2);
     i = 0;
     while (result2[i] != -1)
@@ -142,7 +156,6 @@ void InitTopo(char *topo[MAX_EDGE_NUM], int edge_num)
     int destVex;
     int edgeCost;
     EdgeInfo *pInfo;
-
 
     for (i = 0; i < edge_num; i++)
     {

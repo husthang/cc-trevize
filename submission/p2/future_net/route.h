@@ -11,7 +11,7 @@
 /* debug信息打印 */
 //#define _DEBUG_
 #ifdef  _DEBUG_
-#define DEBUG(format,...) printf("File: "__FILE__", Line: %05d: "format"\n", __LINE__, ##__VA_ARGS__)
+//#define DEBUG(format,...) printf("File: "__FILE__", Line: %05d: "format"\n", __LINE__, ##__VA_ARGS__)
 #else
 #define DEBUG(format,...)
 #endif

@@ -1,0 +1,3 @@
+20160510_122353
+cases: std_test_cases/
+algorithms list: ['submission/p2/bin/future_net']
