@@ -1,5 +1,0 @@
-algorithm, case, time, result, dup_edges, sum_weight
-p2, case0, 20.045442, AC, 3, 822
-p2, case00, 0.004706, AC, 0, 6
-p2, case1, 20.113424, WA, 698, V'' not included.
-p2, case2, 20.062970, AC, 6, 794

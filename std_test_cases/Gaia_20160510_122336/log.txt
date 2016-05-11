@@ -1,1 +1,0 @@
-algorithm, case, time, result, dup_edges, sum_weight
