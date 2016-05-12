@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-"""Trevize: find path using heuristic algorithm
+"""Trevize: find path using ants algorithm
 
 - input
     - topo: `topo.csv`, contains graph
@@ -28,6 +28,7 @@ Notes:
 
 import networkx as nx
 import time  # get benchmark data
+import pants
 
 
 def read_csv(g, stv1):
@@ -456,7 +457,7 @@ def trevize(G, s, t, v1, verbose, first_pairs=[]):
 #     print(generate_seq(v1))
 
     def conten_path(seq_v1):
-        """Generate path(possibly with cycle)"""
+        """Generate path(possibly with cycle)."""
         seq_path = [s] + seq_v1 + [t]
         seq_v1 = []
         path = [s]
@@ -480,14 +481,32 @@ def trevize(G, s, t, v1, verbose, first_pairs=[]):
         return path, seq_v1, weight
 
     def cal_path_weight(path):
-        """Generate path weight."""
+        """Calculate path weight.
+            - input: path node list.
+            - output: path weight.
+        """
         weight = 0
         for i in range(len(path) - 1):
             # as used i+1
             weight += G[path[i]][path[i+1]]['weight']
         return weight
 
-
+    def distance_v1(a, b):
+        """Calculate distance of vi and vj."""
+        if a == t:
+            if b == s:
+                return 0
+            else:
+                return 100000  # test for big
+        elif a == s and b == t:
+                return 100000
+        else:
+            try:
+                new_conten = links_out[a][(a,b)][0][:]
+            except KeyError:
+                return 10000  # punish no path
+            else:
+                return cal_path_weight(new_conten)
 
     from pprint import pprint
 
@@ -554,104 +573,43 @@ def trevize(G, s, t, v1, verbose, first_pairs=[]):
         for v2 in set_v1t:
             if v2 != v:
                 pair = (v, v2)
-                if pair in links_out[v]:
-                    pij[(v,v2)] = 1
-                else:
-                    pij[(v,v2)] = 0
+                pij[(v,v2)] = distance_v1(v, v2)
+    # pprint(pij)
 
-    def mod_pij(path, seq_v1, weight):
-        """Check path and mod pij."""
-        dup_v = set([item for item, count in collections.Counter(path).items() if count > 1])
-        if -1 in dup_v:
-            dup_v.remove(-1)
-        if len(dup_v) == 0:  # no dup in path, no need to modify pij
-            return
-        # print(seq_v1)
-        for pair in seq_v1:
-            # print(dup_v, pair)
-            # pair is subpath in vi and vj
-            if dup_v & set(pair) != 0:  # duplicate in subpath pij
-                pij[(pair[0], pair[-1])] *= (1 - 0.05)
+    nodes = []
+    for v in [s,t] + v1:
+        nodes.append(v)
 
-    def p_path():
-        """Generate path by minimum p and DFS."""
-        # print(s, t, set_v1)
-        stack = collections.deque()
-        stack.append(([s], set_v1.copy(), 0))  # path, num of v' in path
-        num = len(set_v1)
-        while stack:  # stack is not empty
-            path, remain_set, num_v1 = stack.pop()
-            # print("path {}".format(path))
-            # print(remain_set)
-            if num_v1 == num:
-                # output path
-                print(path)
-                return path
-            elif num_v1 == num - 1:
-                # output final vij and vjt
-                # print(path)
-                stack.append(path)
-            else:
-                # add one vj
-                next_plist = []
-                for p in pij:  # p = (vi, vj)
-                    if p[0] == path[-1] and p[1] != t:
-                        next_plist.append([p, pij[p]])
-                next_plist.sort(key=lambda x: x[1], reverse=True)
-                # print(next_plist)
-                for i in next_plist:
-                    if i[0][1] in remain_set:
-                        del_i_set = remain_set.copy()
-                        del_i_set.remove(i[0][1])
-                        stack.append((path + [i[0][1]], del_i_set, num_v1 - 1))
-                        break
+    world = pants.World(nodes, distance_v1)
+    solver = pants.Solver()
+    solution = solver.solve(world)
+    # solutions = solver.solutions(world)
+    print('distance')
+    print(solution.distance)
+    print('tour')
+    print(solution.tour)    # Nodes visited in order
 
     i = 0
-    count = 0
-    iter_time = 1000  # iter limit
-    best_path_list = []  # store best answers
-    best_weight = 100000
-    # print(pij)
-    import collections
-    import pants
+
     while True:
         i += 1
-        # print(pij)
-        print(t, 't')
-        path, seq_v1, weight = conten_path(generate_seq(v1))
-        if i % iter_time == 0:
-            print(pij)
-        len_set = len(set(path))
-        mod_pij(path, seq_v1, weight)
-        if weight < 10000:
-            if len(path) == len_set:
-                print('valid path.')
-                print(path, weight)
-                print("count path {}, i {}".format(count, i))
-                print(seq_v1)
-                # print(pij)
-                return path
-            else:
-                weight += 500 * (len(path) - len_set)
-                # dup_v = [item for item, count in collections.Counter(path).items() if count > 1]
-                # print(dup_v)
-        if weight < best_weight:
-            best_weight = weight
-            print(path, weight)
-            print("count path {}, i {}".format(count, i))
-            # print(pij)
-            input()  # pause
+        print('begin iteration.')
+        seq_v1 = solution.tour
+        j = seq_v1.index(s)
+        seq_v1 = seq_v1[j:] + seq_v1[:j]
+        print(seq_v1)
+        path, seq , weight = conten_path(seq_v1[1:-1])
+        print(path, weight)
 
         if path:
-            count += 1
             if -1 not in path and len(path) == len(set(path)):
                 print('valid path.')
                 return path
             else:
                 pass
-                # print(path)
+                print(path)
+                input()
 
-    print("count path {}, i {}".format(count, i))
 
     if verbose:  # verbose printout
         print("added route:", i_searched)
@@ -731,8 +689,8 @@ def main():
     t0 = time.time()
     note = []
     path = trevize(G, s, t, v1, verbose, note)
-    print(path)
-    # write_csv(o, (path, G), 'all', verbose)
+    # print(path)
+    # heuristic write_csv(o, (path, G), 'all', verbose)
     t1 = time.time()
     print("time: {}".format(t1-t0))
 
@@ -740,6 +698,50 @@ def main():
 
 
 if __name__ == '__main__':
+    '''
+    # demo pants start
+    nodes = []
+    for _ in range(5):
+        x = random.uniform(-10, 10)
+        y = random.uniform(-10, 10)
+        nodes.append((x, y))
+    s = (100, 100)
+    t = (-100, -100)
+    nodes.append(s)
+    nodes.append(t)
+
+    def euclidean(a, b):
+        """Test for s-t path."""
+        if a == t:
+            if b == s:
+                return 0
+            else:
+                return 10000  # test for big
+        if a == s:
+            if b == t:
+                return 10000
+        else:
+            return math.sqrt(pow(a[1] - b[1], 2) + pow(a[0] - b[0], 2))
+
+    world = pants.World(nodes, euclidean)
+    solver = pants.Solver()
+    solution = solver.solve(world)
+    # solutions = solver.solutions(world)
+    print('distance')
+    print(solution.distance)
+    print('tour')
+    print(solution.tour)    # Nodes visited in order
+    print('path')
+    print(solution.path)    # Edges taken in order
+    # or
+    # best = float("inf")
+    # for solution in solutions:
+    #     assert solution.distance < best
+    #     best = solution.distance
+
+
+    # demo pants end
+    '''
     main()
 
     # import cProfile
