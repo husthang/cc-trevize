@@ -49,9 +49,7 @@ int g_totalCost = INF;                  // 总权重
 int g_resultRoute[MAX_VEX+1];           // 搜索路径结果
 
 clock_t g_startTime;                    // 计时器起始时间
-
-
-
+clock_t g_startTimeMain;
 
 
 //你要完成的功能总入口
@@ -59,32 +57,25 @@ void search_route(char *topo[MAX_EDGE_NUM], int edge_num, char *demand[MAX_DEMAN
 {
     int i = 0;
 
-    int result1[MAX_VEX+1];
-    int result2[MAX_VEX+1];
-    int result_num1 = 0;
-    int result_num2 = 0;
+    int result1[2][MAX_VEX+1];
+    int result2[2][MAX_VEX+1];
+    int result_num1[2] = {0};
+    int result_num2[2] = {0}; 
+    int result_totalCost[2] = {0};
 
     InitTopo(topo, edge_num);
 
-    InitDemand(demand, 0);
-    SearchRoute();
-    #ifdef _TEST_RESULT_
-    PrintResultFile();
-    #endif
-    
-    if (-1 == g_resultRoute[0])
-    {
-        clear_result();
-        return;
-    }
+    g_startTime = clock();
+    int roundNum = 0;
 
-    CopyResult(result1, &result_num1);
-    i = 0;
-    while (result1[i] != -1)
-    {
-        record_result(WORK_PATH, (unsigned short)result1[i]);
-        i++;
-    }
+    InitDemand(demand, 0);
+    SearchRoute(0);
+
+    CopyResult(result1[roundNum], &(result_num1[roundNum]), &(result_totalCost[roundNum]));
+
+    #ifdef _TEST_RESULT_
+    printf("Total Cost 1: %d\n\n", g_totalCost);
+    #endif
 
     for (i = 0; i < MAX_VEX; i++)
     {
@@ -92,39 +83,125 @@ void search_route(char *topo[MAX_EDGE_NUM], int edge_num, char *demand[MAX_DEMAN
     }
 
     InitDemand(demand, 1);
-    SearchRoute();
+    SearchRoute(1);
+
+    CopyResult(result2[roundNum], &(result_num2[roundNum]), &(result_totalCost[roundNum]));
+
     #ifdef _TEST_RESULT_
-    PrintResultFile();
+    printf("Total Cost 2: %d\n\n", g_totalCost);
     #endif
 
-    if (-1 == g_resultRoute[0])
+    for (i = 0; i < MAX_VEX; i++)
     {
+        DeleteEdgeNodeForSPFA(&(g_spfaEdgeList[i].pFirstEdge));
+    }
+
+
+
+    RecoverEdges();
+    g_startTime = clock();
+    roundNum = 1;
+
+    InitDemand(demand, 1);
+    SearchRoute(0);
+
+    CopyResult(result2[roundNum], &(result_num2[roundNum]), &(result_totalCost[roundNum]));
+
+    #ifdef _TEST_RESULT_
+    printf("Total Cost 1: %d\n\n", g_totalCost);
+    #endif
+
+    for (i = 0; i < MAX_VEX; i++)
+    {
+        DeleteEdgeNodeForSPFA(&(g_spfaEdgeList[i].pFirstEdge));
+    }
+
+    InitDemand(demand, 0);
+    SearchRoute(1);
+
+    CopyResult(result1[roundNum], &(result_num1[roundNum]), &(result_totalCost[roundNum]));
+
+    #ifdef _TEST_RESULT_
+    printf("Total Cost 2: %d\n\n", g_totalCost);
+    #endif
+
+
+    int round_route1 = 0;
+    int round_route2 = 0;
+
+    if (result2[0][0] == -1 && result1[1][0] == -1)
+    {
+        //cout<<"!!!1"<<endl;
+        round_route1 = 0;
+        round_route2 = 1;
+        DupeExchange(result1[round_route1], result2[round_route2]);
+    }
+    else if (result1[0][0] != -1 && result1[1][0] != -1 && result2[0][0] != -1 && result2[1][0] != -1)
+    {
+        //cout<<"!!!2"<<endl;
+        if (result_totalCost[0] <= result_totalCost[1])
+        {
+            round_route1 = 0;
+            round_route2 = 0;
+        }
+        else
+        {
+            round_route1 = 1;
+            round_route2 = 1;
+        }
+    }
+    else if (result1[0][0] != -1 && result2[0][0] != -1)
+    {
+        //cout<<"!!!3"<<endl;
+        round_route1 = 0;
+        round_route2 = 0;
+    }
+    else if (result1[1][0] != -1 && result2[1][0] != -1)
+    {
+        //cout<<"!!!4"<<endl;
+        round_route1 = 1;
+        round_route2 = 1;
+    }
+    else
+    {
+        //cout<<"!!!5"<<endl;
         clear_result();
         return;
     }
 
-    CopyResult(result2, &result_num2);
+    #ifdef _TEST_RESULT_
+    printf("Route 1:\n");
+    PrintResultFile(result1[round_route1]);
+    printf("\nRoute 2:\n");
+    PrintResultFile(result2[round_route2]);
+    printf("\nTotal Cost: %d\n", result_totalCost[round_route1]);
+    #endif
+
     i = 0;
-    while (result2[i] != -1)
+    while (result1[round_route1][i] != -1)
     {
-        record_result(BACK_PATH, (unsigned short)result2[i]);
+        record_result(WORK_PATH, (unsigned short)result1[round_route1][i]);
+        i++;
+    }
+    i = 0;
+    while (result2[round_route2][i] != -1)
+    {
+        record_result(BACK_PATH, (unsigned short)result2[round_route2][i]);
         i++;
     }
     
     #ifdef _TEST_RESULT_
-    CheckResultDupeEdge(result1, result2);
+    CheckResultDupeEdge(result1[round_route1], result2[round_route2]);
     #endif
 
-    /*
+    
     #ifdef _TEST_RESULT_
-    endTime = clock();
-    duration = (double)(endTime - g_startTime) / CLOCKS_PER_SEC;
-    cout<<endl<<"Time: "<<duration<<"s, Total Cost: "<<g_totalCost<<endl;
+    clock_t endTime = clock();
+    double duration = (double)(endTime - g_startTimeMain) / CLOCKS_PER_SEC;
+    cout<<endl<<"Time: "<<duration<<endl;
     #endif
-    */
+    
 }
-
-
 
 
 
@@ -160,13 +237,16 @@ void InitTopo(char *topo[MAX_EDGE_NUM], int edge_num)
     for (i = 0; i < edge_num; i++)
     {
         sscanf(topo[i], "%d,%d,%d,%d\n", &edgeID, &srcVex, &destVex, &edgeCost);
+        g_edges[edgeID].srcVex   = srcVex;
         g_edges[edgeID].nextEdge = g_headEdge[srcVex];
         g_edges[edgeID].destVex  = destVex;
         g_edges[edgeID].edgeCost = edgeCost;
         g_headEdge[srcVex]       = edgeID;
 
-        if (!IsDupEdge(g_edgeList[srcVex].pFirstEdge, edgeID, destVex, edgeCost))
-        {
+        //cout<<edgeID<<" "<<g_edges[edgeID].srcVex<<" "<<g_edges[edgeID].destVex<<" "<<g_edges[edgeID].edgeCost<<endl;
+
+        //if (!IsDupEdge(g_edgeList[srcVex].pFirstEdge, edgeID, destVex, edgeCost))
+        //{
             pInfo = (EdgeInfo *)malloc(sizeof(EdgeInfo));
             pInfo->edgeID      = edgeID;
             pInfo->srcVex      = srcVex;
@@ -178,7 +258,7 @@ void InitTopo(char *topo[MAX_EDGE_NUM], int edge_num)
             pInfo->edgeSegTail = NULL;
             InsertEdgeNode(&(g_edgeList[srcVex].pFirstEdge), pInfo);
             g_edgeNum++;
-        }
+        //}
     }
 
     #ifdef _JUDGE_MULTI_LAYER_ADJ_
@@ -205,37 +285,59 @@ void InitDemand(char *demand[MAX_DEMAND_NUM], int demand_id)
     g_startVex = atoi(buf1);
     g_endVex   = atoi(buf2);
 
+    //cout<<demand[demand_id]<<endl;
+    //cout<<buf1<<" "<<buf2<<" ";
+
     len = len + strlen(buf1) + strlen(buf2) + 1;
     while (demand[demand_id][len] != '\n' && demand[demand_id][len] != '\0')
     {
         memset(buf1, 0, 6);
         sscanf(demand[demand_id]+len, "%[,|]%[^,|]", &ch, buf1);
-        vexID = atoi(buf1);
-        g_spfaInterVex[vexID]  = 1;
-        g_interVex[g_interNum] = vexID;
-        g_interNum++;
+        if (buf1[0] != 'N')
+        {
+            vexID = atoi(buf1);
+            g_spfaInterVex[vexID]  = 1;
+            g_interVex[g_interNum] = vexID;
+            g_interNum++;
+        }
         len += strlen(buf1) + 1; 
-    }
+
+        //cout<<vexID<<" ";
+    }//cout<<endl;
 }
 
 
-void CopyResult(int *result, int *result_num)
+void CopyResult(int *result, int *result_num, int *result_totalCost)
 {
+    int i = 0;
     if (-1 == g_resultRoute[0])
     {
         *result_num = 0;
-        return;
     }
     else
     {
-        int i = 0;
+        i = 0;
         while (g_resultRoute[i] != -1)
         {
             result[i] = g_resultRoute[i];
+            g_edges[result[i]].edgeCost -= 101;
             i++;
         }
-        result[i] = -1;
         *result_num = i;
+        *result_totalCost += g_totalCost;
+    }
+    result[i] = -1; 
+}
+
+
+void RecoverEdges()
+{
+    for (int i = 0; i < MAX_EDGE; i++)
+    {
+        if (g_edges[i].edgeCost < 0)
+        {
+            g_edges[i].edgeCost += 101;
+        }
     }
 }
 
@@ -248,33 +350,17 @@ void CopyResult(int *result, int *result_num)
 返回值：
 修改情况：
 *****************************************/
-void SearchRoute()
+void SearchRoute(int fullTime)
 {
-    g_startTime = clock();
-
-    if (g_edgeNum < 100)
+    for (int i = 0; i < MAX_VEX; i++)
     {
-        SearchRouteByDFS();
-    }
-    else
-    {
-        for (int i = 0; i < MAX_VEX; i++)
+        if (1 == g_spfaInterVex[i] || i == g_startVex)
         {
-            if (1 == g_spfaInterVex[i] || i == g_startVex)
-            {
-                SPFA(i, 0);
-            }
-        }
-
-        if (g_edgeNum > 1200)
-        {
-            SearchRouteByBalanceSPFA();
-        }
-        else
-        {
-            SearchRouteBySPFA();
+            SPFA(i, 0);
         }
     }
+
+    SearchRouteByBalanceSPFA(fullTime);
 }
 
 
@@ -286,24 +372,25 @@ void SearchRoute()
 返回值：
 修改情况：
 *****************************************/
-void PrintResultFile()
+void PrintResultFile(int resultRoute[])
 {
-    if (-1 == g_resultRoute[0])
+    if (-1 == resultRoute[0])
     {
         printf("NA\n");
     }
     else
     {
         int i = 0;
-        printf("%d", g_resultRoute[i]);
+        printf("%d", resultRoute[i]);
         i++;
-        while (g_resultRoute[i] != -1)
+        while (resultRoute[i] != -1)
         {
-            printf("|%d", g_resultRoute[i]);
+            printf("|%d", resultRoute[i]);
             i++;
         }
     }
-    printf("\nTotal Cost: %d\n", g_totalCost);
+    printf("\n");
+    //printf("Total Cost: %d\n", g_totalCost);
 }
 
 
@@ -328,6 +415,55 @@ int CheckResultDupeEdge(int result1[], int result2[])
     }
     printf("\nDupeEdgeNum: %d\n", dupeNum);
     return dupeNum;
+}
+
+
+void DupeExchange(int result1[], int result2[])
+{
+    int i = 0;
+    int j = 0;
+    int newEdge = -1;
+    while (result1[i] != -1)
+    {
+        j = 0;
+        while (result2[j] != -1)
+        {
+            if (result1[i] == result2[j])
+            {
+                newEdge = GetExchange(result1[i]);
+                if (newEdge != -1)
+                {
+                    result1[i] = newEdge;
+                }
+                break;
+            }
+            j++;
+        }
+        i++;
+    }
+}
+
+
+int GetExchange(int edgeID)
+{
+    EdgeNode *pNode = g_edgeList[g_edges[edgeID].srcVex].pFirstEdge;
+    int minCost = 0;
+    int newID   = -1;
+    while (pNode != NULL)
+    {
+        if ((pNode->edgeInfo.edgeID != edgeID)
+            && (pNode->edgeInfo.srcVex == g_edges[edgeID].srcVex) 
+            && (pNode->edgeInfo.destVex == g_edges[edgeID].destVex))
+        {
+            if (minCost < g_edges[edgeID].edgeCost)
+            {
+                minCost = g_edges[edgeID].edgeCost;
+                newID   = pNode->edgeInfo.edgeID;
+            }
+        }
+        pNode = pNode->pNext;
+    }
+    return newID;
 }
 
 
@@ -511,6 +647,11 @@ void SPFA(int startVex, int endVex)
 
         for (i = g_headEdge[queueFront]; i != -1; i = g_edges[i].nextEdge)
         {
+            if (g_edges[i].edgeCost < 0)
+            {
+                continue;
+            }
+
             int cost = g_edges[i].edgeCost;
             if (cost + g_spfaLeastCost[queueFront] < g_spfaLeastCost[g_edges[i].destVex])
             {
@@ -1399,7 +1540,7 @@ void ReformMultiLayerAdjList(int loop, int layer)
 返回值：
 修改情况：
 *****************************************/
-void SearchRouteByBalanceSPFA()
+void SearchRouteByBalanceSPFA(int fullTime)
 {
     clock_t endTime;
     double duration;
@@ -1489,6 +1630,10 @@ void SearchRouteByBalanceSPFA()
                             #ifdef _TEST_RESULT_
                             cout << "New Least Cost " << g_totalCost << endl;
                             #endif
+                            if (fullTime == 0)
+                            {
+                                return;
+                            }
                         }
                     }
 

@@ -62,29 +62,22 @@ void search_route(char *topo[MAX_EDGE_NUM], int edge_num, char *demand[MAX_DEMAN
     int result1[MAX_VEX+1];
     int result2[MAX_VEX+1];
     int result_num1 = 0;
-    int result_num2 = 0;
+    int result_num2 = 0; 
 
     InitTopo(topo, edge_num);
 
     InitDemand(demand, 0);
-    SearchRoute();
-    #ifdef _TEST_RESULT_
-    PrintResultFile();
-    #endif
-    
+    SearchRoute(0);
     if (-1 == g_resultRoute[0])
     {
         clear_result();
         return;
     }
-
     CopyResult(result1, &result_num1);
-    i = 0;
-    while (result1[i] != -1)
-    {
-        record_result(WORK_PATH, (unsigned short)result1[i]);
-        i++;
-    }
+
+    #ifdef _TEST_RESULT_
+    printf("Total Cost 1: %d\n\n", g_totalCost);
+    #endif
 
     for (i = 0; i < MAX_VEX; i++)
     {
@@ -92,18 +85,33 @@ void search_route(char *topo[MAX_EDGE_NUM], int edge_num, char *demand[MAX_DEMAN
     }
 
     InitDemand(demand, 1);
-    SearchRoute();
-    #ifdef _TEST_RESULT_
-    PrintResultFile();
-    #endif
-
+    SearchRoute(1);
     if (-1 == g_resultRoute[0])
     {
         clear_result();
         return;
     }
-
     CopyResult(result2, &result_num2);
+
+    #ifdef _TEST_RESULT_
+    printf("Total Cost 2: %d\n\n", g_totalCost);
+    #endif
+
+    DupeExchange(result1, result2);
+
+    #ifdef _TEST_RESULT_
+    printf("Route 1: ");
+    PrintResultFile(result1);
+    printf("Route 2: ");
+    PrintResultFile(result2);
+    #endif
+
+    i = 0;
+    while (result1[i] != -1)
+    {
+        record_result(WORK_PATH, (unsigned short)result1[i]);
+        i++;
+    }
     i = 0;
     while (result2[i] != -1)
     {
@@ -123,8 +131,6 @@ void search_route(char *topo[MAX_EDGE_NUM], int edge_num, char *demand[MAX_DEMAN
     #endif
     */
 }
-
-
 
 
 
@@ -160,13 +166,16 @@ void InitTopo(char *topo[MAX_EDGE_NUM], int edge_num)
     for (i = 0; i < edge_num; i++)
     {
         sscanf(topo[i], "%d,%d,%d,%d\n", &edgeID, &srcVex, &destVex, &edgeCost);
+        g_edges[edgeID].srcVex   = srcVex;
         g_edges[edgeID].nextEdge = g_headEdge[srcVex];
         g_edges[edgeID].destVex  = destVex;
         g_edges[edgeID].edgeCost = edgeCost;
         g_headEdge[srcVex]       = edgeID;
 
-        if (!IsDupEdge(g_edgeList[srcVex].pFirstEdge, edgeID, destVex, edgeCost))
-        {
+        //cout<<edgeID<<" "<<g_edges[edgeID].srcVex<<" "<<g_edges[edgeID].destVex<<" "<<g_edges[edgeID].edgeCost<<endl;
+
+        //if (!IsDupEdge(g_edgeList[srcVex].pFirstEdge, edgeID, destVex, edgeCost))
+        //{
             pInfo = (EdgeInfo *)malloc(sizeof(EdgeInfo));
             pInfo->edgeID      = edgeID;
             pInfo->srcVex      = srcVex;
@@ -178,7 +187,7 @@ void InitTopo(char *topo[MAX_EDGE_NUM], int edge_num)
             pInfo->edgeSegTail = NULL;
             InsertEdgeNode(&(g_edgeList[srcVex].pFirstEdge), pInfo);
             g_edgeNum++;
-        }
+        //}
     }
 
     #ifdef _JUDGE_MULTI_LAYER_ADJ_
@@ -205,17 +214,25 @@ void InitDemand(char *demand[MAX_DEMAND_NUM], int demand_id)
     g_startVex = atoi(buf1);
     g_endVex   = atoi(buf2);
 
+    //cout<<demand[demand_id]<<endl;
+    //cout<<buf1<<" "<<buf2<<" ";
+
     len = len + strlen(buf1) + strlen(buf2) + 1;
     while (demand[demand_id][len] != '\n' && demand[demand_id][len] != '\0')
     {
         memset(buf1, 0, 6);
         sscanf(demand[demand_id]+len, "%[,|]%[^,|]", &ch, buf1);
-        vexID = atoi(buf1);
-        g_spfaInterVex[vexID]  = 1;
-        g_interVex[g_interNum] = vexID;
-        g_interNum++;
+        if (buf1[0] != 'N')
+        {
+            vexID = atoi(buf1);
+            g_spfaInterVex[vexID]  = 1;
+            g_interVex[g_interNum] = vexID;
+            g_interNum++;
+        }
         len += strlen(buf1) + 1; 
-    }
+
+        //cout<<vexID<<" ";
+    }//cout<<endl;
 }
 
 
@@ -232,6 +249,7 @@ void CopyResult(int *result, int *result_num)
         while (g_resultRoute[i] != -1)
         {
             result[i] = g_resultRoute[i];
+            g_edges[result[i]].edgeCost = -1;
             i++;
         }
         result[i] = -1;
@@ -248,33 +266,19 @@ void CopyResult(int *result, int *result_num)
 返回值：
 修改情况：
 *****************************************/
-void SearchRoute()
+void SearchRoute(int demand_id)
 {
     g_startTime = clock();
 
-    if (g_edgeNum < 100)
+    for (int i = 0; i < MAX_VEX; i++)
     {
-        SearchRouteByDFS();
-    }
-    else
-    {
-        for (int i = 0; i < MAX_VEX; i++)
+        if (1 == g_spfaInterVex[i] || i == g_startVex)
         {
-            if (1 == g_spfaInterVex[i] || i == g_startVex)
-            {
-                SPFA(i, 0);
-            }
+            SPFA(i, 0);
         }
+    }
 
-        if (g_edgeNum > 1200)
-        {
-            SearchRouteByBalanceSPFA();
-        }
-        else
-        {
-            SearchRouteBySPFA();
-        }
-    }
+    SearchRouteByBalanceSPFA(demand_id);
 }
 
 
@@ -286,24 +290,25 @@ void SearchRoute()
 返回值：
 修改情况：
 *****************************************/
-void PrintResultFile()
+void PrintResultFile(int resultRoute[])
 {
-    if (-1 == g_resultRoute[0])
+    if (-1 == resultRoute[0])
     {
         printf("NA\n");
     }
     else
     {
         int i = 0;
-        printf("%d", g_resultRoute[i]);
+        printf("%d", resultRoute[i]);
         i++;
-        while (g_resultRoute[i] != -1)
+        while (resultRoute[i] != -1)
         {
-            printf("|%d", g_resultRoute[i]);
+            printf("|%d", resultRoute[i]);
             i++;
         }
     }
-    printf("\nTotal Cost: %d\n", g_totalCost);
+    printf("\n");
+    //printf("Total Cost: %d\n", g_totalCost);
 }
 
 
@@ -328,6 +333,55 @@ int CheckResultDupeEdge(int result1[], int result2[])
     }
     printf("\nDupeEdgeNum: %d\n", dupeNum);
     return dupeNum;
+}
+
+
+void DupeExchange(int result1[], int result2[])
+{
+    int i = 0;
+    int j = 0;
+    int newEdge = -1;
+    while (result1[i] != -1)
+    {
+        j = 0;
+        while (result2[j] != -1)
+        {
+            if (result1[i] == result2[j])
+            {
+                newEdge = GetExchange(result1[i]);
+                if (newEdge != -1)
+                {
+                    result1[i] = newEdge;
+                }
+                break;
+            }
+            j++;
+        }
+        i++;
+    }
+}
+
+
+int GetExchange(int edgeID)
+{
+    EdgeNode *pNode = g_edgeList[g_edges[edgeID].srcVex].pFirstEdge;
+    int minCost = 0;
+    int newID   = -1;
+    while (pNode != NULL)
+    {
+        if ((pNode->edgeInfo.edgeID != edgeID)
+            && (pNode->edgeInfo.srcVex == g_edges[edgeID].srcVex) 
+            && (pNode->edgeInfo.destVex == g_edges[edgeID].destVex))
+        {
+            if (minCost < g_edges[edgeID].edgeCost)
+            {
+                minCost = g_edges[edgeID].edgeCost;
+                newID   = pNode->edgeInfo.edgeID;
+            }
+        }
+        pNode = pNode->pNext;
+    }
+    return newID;
 }
 
 
@@ -511,6 +565,11 @@ void SPFA(int startVex, int endVex)
 
         for (i = g_headEdge[queueFront]; i != -1; i = g_edges[i].nextEdge)
         {
+            if (-1 == g_edges[i].edgeCost)
+            {
+                continue;
+            }
+
             int cost = g_edges[i].edgeCost;
             if (cost + g_spfaLeastCost[queueFront] < g_spfaLeastCost[g_edges[i].destVex])
             {
@@ -1399,7 +1458,7 @@ void ReformMultiLayerAdjList(int loop, int layer)
 返回值：
 修改情况：
 *****************************************/
-void SearchRouteByBalanceSPFA()
+void SearchRouteByBalanceSPFA(int demand_id)
 {
     clock_t endTime;
     double duration;
@@ -1441,6 +1500,13 @@ void SearchRouteByBalanceSPFA()
         {
             pEdge = pEdge->pNext;
         }
+
+        /*
+        while (pEdge != NULL && g_edges[pEdge->edgeInfo.edgeID].edgeCost == -1)
+        {
+            pEdge = pEdge->pNext;
+        }
+        */
 
         RENEW:
 
@@ -1489,6 +1555,10 @@ void SearchRouteByBalanceSPFA()
                             #ifdef _TEST_RESULT_
                             cout << "New Least Cost " << g_totalCost << endl;
                             #endif
+                            if (demand_id == 0)
+                            {
+                                return;
+                            }
                         }
                     }
 

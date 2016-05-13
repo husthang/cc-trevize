@@ -46,6 +46,7 @@
  ****************************************/
 typedef struct Edge
 {
+    int srcVex;
     int destVex;
     int nextEdge;
     int edgeCost;
@@ -99,7 +100,15 @@ void InitDemand(char *demand[MAX_DEMAND_NUM], int demand_id);
 
 void CopyResult(int *result, int *result_num);
 
-void SearchRoute();
+void SearchRoute(int demand_id);
+
+void PrintResultFile(int resultRoute[]);
+
+int CheckResultDupeEdge(int result1[], int result2[]);
+
+void DupeExchange(int result1[], int result2[]);
+
+int GetExchange(int edgeID);
 
 void PrintSPFALeastCost(int End);
 
@@ -124,10 +133,6 @@ void PrintIntNode(IntNode *pHead);
 void SPFA(int Start, int End);
 
 void PrintStack(int vexStack[], int stackTop);
-
-void PrintResultFile();
-
-int CheckResultDupeEdge(int result1[], int result2[]);
 
 void PrintVisit(int visit[]);
 
@@ -159,7 +164,7 @@ int MultiLayerPseudoCost(EdgeInfo *pEdgeInfo, int layer);
 
 void ReformMultiLayerAdjList(int loop, int layer);
 
-void SearchRouteByBalanceSPFA();
+void SearchRouteByBalanceSPFA(int demand_id);
 
 double GetTimeIntervalForBalanceSPFA(EdgeNode *pEdge, double remainTime);
 

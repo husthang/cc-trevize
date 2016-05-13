@@ -46,6 +46,7 @@
  ****************************************/
 typedef struct Edge
 {
+    int srcVex;
     int destVex;
     int nextEdge;
     int edgeCost;
@@ -101,6 +102,14 @@ void CopyResult(int *result, int *result_num);
 
 void SearchRoute();
 
+void PrintResultFile();
+
+int CheckResultDupeEdge(int result1[], int result2[]);
+
+void DupeExchange(int result1[], int result2[]);
+
+int GetExchange(int edgeID);
+
 void PrintSPFALeastCost(int End);
 
 void PrintPathByVex(int k);
@@ -124,10 +133,6 @@ void PrintIntNode(IntNode *pHead);
 void SPFA(int Start, int End);
 
 void PrintStack(int vexStack[], int stackTop);
-
-void PrintResultFile();
-
-int CheckResultDupeEdge(int result1[], int result2[]);
 
 void PrintVisit(int visit[]);
 

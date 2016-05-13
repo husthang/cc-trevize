@@ -79,12 +79,6 @@ void search_route(char *topo[MAX_EDGE_NUM], int edge_num, char *demand[MAX_DEMAN
     }
 
     CopyResult(result1, &result_num1);
-    i = 0;
-    while (result1[i] != -1)
-    {
-        record_result(WORK_PATH, (unsigned short)result1[i]);
-        i++;
-    }
 
     for (i = 0; i < MAX_VEX; i++)
     {
@@ -104,6 +98,14 @@ void search_route(char *topo[MAX_EDGE_NUM], int edge_num, char *demand[MAX_DEMAN
     }
 
     CopyResult(result2, &result_num2);
+
+    DupeExchange(result1, result2);
+    i = 0;
+    while (result1[i] != -1)
+    {
+        record_result(WORK_PATH, (unsigned short)result1[i]);
+        i++;
+    }
     i = 0;
     while (result2[i] != -1)
     {
@@ -160,13 +162,16 @@ void InitTopo(char *topo[MAX_EDGE_NUM], int edge_num)
     for (i = 0; i < edge_num; i++)
     {
         sscanf(topo[i], "%d,%d,%d,%d\n", &edgeID, &srcVex, &destVex, &edgeCost);
+        g_edges[edgeID].srcVex   = srcVex;
         g_edges[edgeID].nextEdge = g_headEdge[srcVex];
         g_edges[edgeID].destVex  = destVex;
         g_edges[edgeID].edgeCost = edgeCost;
         g_headEdge[srcVex]       = edgeID;
 
-        if (!IsDupEdge(g_edgeList[srcVex].pFirstEdge, edgeID, destVex, edgeCost))
-        {
+        //cout<<edgeID<<" "<<g_edges[edgeID].srcVex<<" "<<g_edges[edgeID].destVex<<" "<<g_edges[edgeID].edgeCost<<endl;
+
+        //if (!IsDupEdge(g_edgeList[srcVex].pFirstEdge, edgeID, destVex, edgeCost))
+        //{
             pInfo = (EdgeInfo *)malloc(sizeof(EdgeInfo));
             pInfo->edgeID      = edgeID;
             pInfo->srcVex      = srcVex;
@@ -178,7 +183,7 @@ void InitTopo(char *topo[MAX_EDGE_NUM], int edge_num)
             pInfo->edgeSegTail = NULL;
             InsertEdgeNode(&(g_edgeList[srcVex].pFirstEdge), pInfo);
             g_edgeNum++;
-        }
+        //}
     }
 
     #ifdef _JUDGE_MULTI_LAYER_ADJ_
@@ -205,17 +210,25 @@ void InitDemand(char *demand[MAX_DEMAND_NUM], int demand_id)
     g_startVex = atoi(buf1);
     g_endVex   = atoi(buf2);
 
+    //cout<<demand[demand_id]<<endl;
+    //cout<<buf1<<" "<<buf2<<" ";
+
     len = len + strlen(buf1) + strlen(buf2) + 1;
     while (demand[demand_id][len] != '\n' && demand[demand_id][len] != '\0')
     {
         memset(buf1, 0, 6);
         sscanf(demand[demand_id]+len, "%[,|]%[^,|]", &ch, buf1);
-        vexID = atoi(buf1);
-        g_spfaInterVex[vexID]  = 1;
-        g_interVex[g_interNum] = vexID;
-        g_interNum++;
+        if (buf1[0] != 'N')
+        {
+            vexID = atoi(buf1);
+            g_spfaInterVex[vexID]  = 1;
+            g_interVex[g_interNum] = vexID;
+            g_interNum++;
+        }
         len += strlen(buf1) + 1; 
-    }
+
+        //cout<<vexID<<" ";
+    }//cout<<endl;
 }
 
 
@@ -252,29 +265,15 @@ void SearchRoute()
 {
     g_startTime = clock();
 
-    if (g_edgeNum < 100)
+    for (int i = 0; i < MAX_VEX; i++)
     {
-        SearchRouteByDFS();
-    }
-    else
-    {
-        for (int i = 0; i < MAX_VEX; i++)
+        if (1 == g_spfaInterVex[i] || i == g_startVex)
         {
-            if (1 == g_spfaInterVex[i] || i == g_startVex)
-            {
-                SPFA(i, 0);
-            }
+            SPFA(i, 0);
         }
+    }
 
-        if (g_edgeNum > 1200)
-        {
-            SearchRouteByBalanceSPFA();
-        }
-        else
-        {
-            SearchRouteBySPFA();
-        }
-    }
+    SearchRouteByBalanceSPFA();
 }
 
 
@@ -328,6 +327,55 @@ int CheckResultDupeEdge(int result1[], int result2[])
     }
     printf("\nDupeEdgeNum: %d\n", dupeNum);
     return dupeNum;
+}
+
+
+void DupeExchange(int result1[], int result2[])
+{
+    int i = 0;
+    int j = 0;
+    int newEdge = -1;
+    while (result1[i] != -1)
+    {
+        j = 0;
+        while (result2[j] != -1)
+        {
+            if (result1[i] == result2[j])
+            {
+                newEdge = GetExchange(result1[i]);
+                if (newEdge != -1)
+                {
+                    result1[i] = newEdge;
+                }
+                break;
+            }
+            j++;
+        }
+        i++;
+    }
+}
+
+
+int GetExchange(int edgeID)
+{
+    EdgeNode *pNode = g_edgeList[g_edges[edgeID].srcVex].pFirstEdge;
+    int minCost = 0;
+    int newID   = -1;
+    while (pNode != NULL)
+    {
+        if ((pNode->edgeInfo.edgeID != edgeID)
+            && (pNode->edgeInfo.srcVex == g_edges[edgeID].srcVex) 
+            && (pNode->edgeInfo.destVex == g_edges[edgeID].destVex))
+        {
+            if (minCost < g_edges[edgeID].edgeCost)
+            {
+                minCost = g_edges[edgeID].edgeCost;
+                newID   = pNode->edgeInfo.edgeID;
+            }
+        }
+        pNode = pNode->pNext;
+    }
+    return newID;
 }
 
 
