@@ -581,25 +581,22 @@ def trevize(G, s, t, v1, verbose, first_pairs=[]):
         nodes.append(v)
 
     world = pants.World(nodes, distance_v1)
-    solver = pants.Solver()
+    solver = pants.Solver(start=s)
     solution = solver.solve(world)
     # solutions = solver.solutions(world)
-    print('distance')
-    print(solution.distance)
-    print('tour')
-    print(solution.tour)    # Nodes visited in order
+    print('distance: {}'.format(solution.distance))
+    print('tour: {}'.format(solution.tour))
 
     i = 0
 
     while True:
         i += 1
-        print('begin iteration.')
         seq_v1 = solution.tour
         j = seq_v1.index(s)
         seq_v1 = seq_v1[j:] + seq_v1[:j]
-        print(seq_v1)
+        print('seq of v1:', seq_v1)
         path, seq , weight = conten_path(seq_v1[1:-1])
-        print(path, weight)
+        print(path, 'weight', weight)
 
         if path:
             if -1 not in path and len(path) == len(set(path)):
