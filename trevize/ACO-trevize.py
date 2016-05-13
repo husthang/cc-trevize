@@ -577,15 +577,22 @@ def trevize(G, s, t, v1, verbose, first_pairs=[]):
     # pprint(pij)
 
     nodes = []
+    node_dict = {}
     for v in [s,t] + v1:
         nodes.append(v)
+        node_dict[len(nodes)] = v
+    # print(node_dict)
 
     world = pants.World(nodes, distance_v1)
-    solver = pants.Solver(start=s)
+    solver = pants.Solver(start=s,
+                          alpha=1,
+                          beta=3,
+                          limit=100,
+                          links_out=links_out)
     solution = solver.solve(world)
     # solutions = solver.solutions(world)
-    print('distance: {}'.format(solution.distance))
-    print('tour: {}'.format(solution.tour))
+    # print('distance: {}'.format(solution.distance))
+    # print('tour: {}'.format(solution.tour))
 
     i = 0
 
@@ -603,8 +610,9 @@ def trevize(G, s, t, v1, verbose, first_pairs=[]):
                 print('valid path.')
                 return path
             else:
-                pass
+                print('not valid')
                 print(path)
+                print(len(path)- len(set(path)))
                 input()
 
 

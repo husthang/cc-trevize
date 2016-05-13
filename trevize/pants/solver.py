@@ -14,6 +14,7 @@ from copy import copy
 from .world import World
 from .ant import Ant
 
+
 class Solver:
     """This class contains the functionality for finding one or more solutions
     for a given :class:`World`.
@@ -41,6 +42,7 @@ class Solver:
         self.ant_count = kwargs.get('ant_count', 10)
         self.elite = kwargs.get('elite', .5)
         self.start = kwargs.get('start', None)
+        self.links_out = kwargs.get('links_out', None)
 
     def create_colony(self, world):
         """Create a set of :class:`Ant`\s and initialize them to the given
@@ -72,7 +74,7 @@ class Solver:
         :param list colony: the :class:`Ant`\s to reset
         """
         for ant in colony:
-            ant.initialize(ant.world, start=self.start)
+            ant.initialize(ant.world, self.links_out, start=self.start)
 
     def aco(self, colony):
         """Return the best solution by performing the ACO meta-heuristic.
@@ -156,7 +158,7 @@ class Solver:
         n = len(starts)
         return [
             Ant(self.alpha, self.beta).initialize(
-                world, start=starts[0])
+                world, self.links_out, start=starts[0])
             for i in range(count)
         ]
 
@@ -188,21 +190,21 @@ class Solver:
                 for i in range(self.ant_count // n):
                     ants.extend([
                         Ant(self.alpha,self.beta).initialize(
-                            world, start=self.start)
+                            world, self.links_out, start=self.start)
                         for j in range(n)
                     ])
             # Now (without choosing the same node twice) choose the reamining
             # starts randomly.
             ants.extend([
                 Ant(self.alpha, self.beta).initialize(
-                    world, start=self.start)
+                    world, self.links_out, start=self.start)
                 for i in range(count % n)
             ])
         else:
             # Just pick random nodes.
             ants.extend([
                 Ant(self.alpha, self.beta).initialize(
-                    world, start=self.start)
+                    world, self.links_out, start=self.start)
                 for i in range(count)
             ])
         return ants
@@ -259,7 +261,33 @@ class Solver:
         :param list ants: the ants to use for solving
         """
         ants = sorted(ants)[:len(ants) // 2]
+        def edge_duplicate(v1_list):
+            """Calculate duplicate edge weights."""
+            path = [v1_list[0]]
+            for i in range(len(v1_list) - 1):
+                if i != len(v1_list) - 1:
+                    a = v1_list[i]
+                    b = v1_list[i+1]
+                else:
+                    a = v1_list[i]
+                    b = v1_list[0]
+                try:
+                    new_subpath = self.links_out[a][(a,b)][0][1:]
+                except KeyError:
+                    new_subpath = [b]
+                path += new_subpath
+            # print(path)
+            # print(len(path), len(set(path)))
+            return 500*(len(path)-len(set(path)))
+
         for a in ants:
+            v1_list = []
+            for edge in a.path:
+                v1_list.append(edge.start)
+            # print(v1_list, ',', a.distance)
+            a.distance += edge_duplicate(v1_list)
+            # print(a.distance)
+            # input()
             p = self.q / a.distance
             for edge in a.path:
                 edge.pheromone = max(

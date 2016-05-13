@@ -455,7 +455,7 @@ def trevize(G, s, t, v1, verbose, first_pairs=[]):
 #     print(generate_seq(v1))
 #     print(generate_seq(v1))
 
-    def conten_path(seq_v1):
+    def conten_path(seq_v 1):
         """Generate path(possibly with cycle)"""
         seq_path = [s] + seq_v1 + [t]
         seq_v1 = []

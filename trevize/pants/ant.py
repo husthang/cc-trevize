@@ -104,7 +104,7 @@ class Ant:
         self.unvisited = []
         self.traveled = []
 
-    def initialize(self, world, start=None):
+    def initialize(self, world, links_out, start=None):
         """Reset everything so that a new solution can be found.
 
         :param World world: the world to solve
@@ -121,6 +121,7 @@ class Ant:
         self.visited = [self.start]
         self.unvisited = [n for n in self.world.nodes if n != self.start]
         self.traveled = []
+        self.links_out = links_out
         return self
 
     def clone(self):
