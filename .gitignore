@@ -5,6 +5,7 @@ test/
 #submission/
 *.ipynb
 *.DS_Store
+std_test_cases/Gaia*
 
 # gitignore: python + c @ GitHub
 
@@ -27,7 +28,7 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
+#lib/
 lib64/
 parts/
 sdist/
