@@ -441,6 +441,54 @@ def trevize(G, s, t, v1, verbose, first_pairs=[]):
             if not links_in[v]:
                 del links_in[v]
 
+
+    def generate_seq(v1):
+        """Generate sequence of V'."""
+        import random
+        v1_copy = v1[:]
+        random.shuffle(v1_copy)
+        return v1_copy
+
+#     print(generate_seq(v1))
+#     conten_path(v1)
+#     print(generate_seq(v1))
+#     print(generate_seq(v1))
+#     print(generate_seq(v1))
+
+    def conten_path(seq_v 1):
+        """Generate path(possibly with cycle)"""
+        seq_path = [s] + seq_v1 + [t]
+        seq_v1 = []
+        path = [s]
+        weight = 0
+        while len(seq_path) > 1:
+            pair = (seq_path[0], seq_path[1])
+            try:
+                new_conten = links_out[seq_path[0]][pair][0][1:]
+            except KeyError:
+                new_conten = [-1, seq_path[1]]
+                seq_v1.append([seq_path[0], -1, seq_path[1]])
+                weight += 10000  # punish no edge
+            else:
+                seq_v1.append([seq_path[0]] + new_conten)
+                weight += cal_path_weight([seq_path[0]] + new_conten)
+            finally:
+                path += new_conten
+            del seq_path[0]
+            # print(new_conten)
+        # print(path)
+        return path, seq_v1, weight
+
+    def cal_path_weight(path):
+        """Generate path weight."""
+        weight = 0
+        for i in range(len(path) - 1):
+            # as used i+1
+            weight += G[path[i]][path[i+1]]['weight']
+        return weight
+
+
+
     from pprint import pprint
 
     set_v1 = set(v1)
@@ -501,23 +549,109 @@ def trevize(G, s, t, v1, verbose, first_pairs=[]):
     for i in first_pairs:
         first_pairs0.append(i[:])
 
-    while path_set_sv1:
-        if not one_move(final_path, first_pairs):
-            return final_path, first_pairs0
-        if verbose:
-            print('used vertex:', used)
-        # pprint(links_out)
-        # pprint(links_in)
-        # pprint(sv1_outdegree)
-        # pprint(v1t_indegree)
-    if len(final_path[0]) == len(set(final_path[0])):
-        print('valid path.')
-    else:
-        print('invalid path.')
-        print(len(final_path[0]), len(set(final_path[0])))
-    # pprint(preds)
-    # pprint(succs)
-    return final_path, G
+    pij = {}
+    for v in set_sv1:
+        for v2 in set_v1t:
+            if v2 != v:
+                pair = (v, v2)
+                if pair in links_out[v]:
+                    pij[(v,v2)] = 1
+                else:
+                    pij[(v,v2)] = 0
+
+    def mod_pij(path, seq_v1, weight):
+        """Check path and mod pij."""
+        dup_v = set([item for item, count in collections.Counter(path).items() if count > 1])
+        if -1 in dup_v:
+            dup_v.remove(-1)
+        if len(dup_v) == 0:  # no dup in path, no need to modify pij
+            return
+        # print(seq_v1)
+        for pair in seq_v1:
+            # print(dup_v, pair)
+            # pair is subpath in vi and vj
+            if dup_v & set(pair) != 0:  # duplicate in subpath pij
+                pij[(pair[0], pair[-1])] *= (1 - 0.05)
+
+    def p_path():
+        """Generate path by minimum p and DFS."""
+        # print(s, t, set_v1)
+        stack = collections.deque()
+        stack.append(([s], set_v1.copy(), 0))  # path, num of v' in path
+        num = len(set_v1)
+        while stack:  # stack is not empty
+            path, remain_set, num_v1 = stack.pop()
+            # print("path {}".format(path))
+            # print(remain_set)
+            if num_v1 == num:
+                # output path
+                print(path)
+                return path
+            elif num_v1 == num - 1:
+                # output final vij and vjt
+                # print(path)
+                stack.append(path)
+            else:
+                # add one vj
+                next_plist = []
+                for p in pij:  # p = (vi, vj)
+                    if p[0] == path[-1] and p[1] != t:
+                        next_plist.append([p, pij[p]])
+                next_plist.sort(key=lambda x: x[1], reverse=True)
+                # print(next_plist)
+                for i in next_plist:
+                    if i[0][1] in remain_set:
+                        del_i_set = remain_set.copy()
+                        del_i_set.remove(i[0][1])
+                        stack.append((path + [i[0][1]], del_i_set, num_v1 - 1))
+                        break
+
+    i = 0
+    count = 0
+    iter_time = 1000  # iter limit
+    best_path_list = []  # store best answers
+    best_weight = 100000
+    # print(pij)
+    import collections
+    import pants
+    while True:
+        i += 1
+        # print(pij)
+        print(t, 't')
+        path, seq_v1, weight = conten_path(generate_seq(v1))
+        if i % iter_time == 0:
+            print(pij)
+        len_set = len(set(path))
+        mod_pij(path, seq_v1, weight)
+        if weight < 10000:
+            if len(path) == len_set:
+                print('valid path.')
+                print(path, weight)
+                print("count path {}, i {}".format(count, i))
+                print(seq_v1)
+                # print(pij)
+                return path
+            else:
+                weight += 500 * (len(path) - len_set)
+                # dup_v = [item for item, count in collections.Counter(path).items() if count > 1]
+                # print(dup_v)
+        if weight < best_weight:
+            best_weight = weight
+            print(path, weight)
+            print("count path {}, i {}".format(count, i))
+            # print(pij)
+            input()  # pause
+
+        if path:
+            count += 1
+            if -1 not in path and len(path) == len(set(path)):
+                print('valid path.')
+                return path
+            else:
+                pass
+                # print(path)
+
+    print("count path {}, i {}".format(count, i))
 
     if verbose:  # verbose printout
         print("added route:", i_searched)
@@ -593,19 +727,12 @@ def main():
 
     G, s, t, v1 = read_csv(topo, demand)
 
-    import time
     global t0
     t0 = time.time()
     note = []
-    while isinstance(note, list):
-        answer = trevize(G, s, t, v1, verbose, note)
-        path, note = answer
-        print(path, note)
-        if len(path) is not 1:  # only one element in path
-            input('do not find valid path. iteration')
-        else:
-            break
-    write_csv(o, answer, 'all', verbose)
+    path = trevize(G, s, t, v1, verbose, note)
+    print(path)
+    # write_csv(o, (path, G), 'all', verbose)
     t1 = time.time()
     print("time: {}".format(t1-t0))
 
