@@ -278,7 +278,7 @@ class Solver:
                 path += new_subpath
             # print(path)
             # print(len(path), len(set(path)))
-            return 500*(len(path)-len(set(path)))
+            return 2000*(len(path)-len(set(path)))
 
         for a in ants:
             v1_list = []

@@ -29,6 +29,7 @@ Notes:
 import networkx as nx
 import time  # get benchmark data
 import pants
+from collections import deque
 
 
 def read_csv(g, stv1):
@@ -459,6 +460,7 @@ def trevize(G, s, t, v1, verbose, first_pairs=[]):
     def conten_path(seq_v1):
         """Generate path(possibly with cycle)."""
         seq_path = [s] + seq_v1 + [t]
+        seq_path2 = [s] + seq_v1 + [t]
         seq_v1 = []
         path = [s]
         weight = 0
@@ -478,7 +480,16 @@ def trevize(G, s, t, v1, verbose, first_pairs=[]):
             del seq_path[0]
             # print(new_conten)
         # print(path)
-        return path, seq_v1, weight
+        return path, seq_path2, weight
+
+    def cal_v1_weight(seq_v1):
+        """Generate path(possibly with cycle)."""
+        weight = 0
+        for i in range(len(seq_v1)-1):
+            weight += distance_v1(seq_v1[i], seq_v1[i+1])
+            # print(weight)
+        # print(seq_v1, weight)
+        return weight
 
     def cal_path_weight(path):
         """Calculate path weight.
@@ -532,7 +543,7 @@ def trevize(G, s, t, v1, verbose, first_pairs=[]):
     i_searched = 0
     print("s:", s, "t:", t, "V':", v1)  # printout for debugging
 
-    INIT_DEPTH = 5  # init depth: 5 works for std case 1, 2, 4
+    INIT_DEPTH = 9  # init depth: 5 works for std case 1, 2, 4
     for v in set_sv1:
         depth = 1
         while (not links_out[v]) or (depth < INIT_DEPTH):
@@ -596,13 +607,122 @@ def trevize(G, s, t, v1, verbose, first_pairs=[]):
 
     i = 0
 
+
+    def local_DFS(seq, depth=6):
+        """local DFS to reduce weight.
+
+        1. generate sequence for local DFS.
+        2. DFS to find least local weight."""
+        for i in range(len(seq) - 1):
+            if distance_v1(seq[i], seq[i+1]) >= 10000:
+                # no path between
+                # print(seq[i])
+                begin = max(0, i-depth)
+                end = min(i+depth, len(seq))
+                # print('begin {}, end{}'.format(begin,end))
+                # print(seq[begin:end])
+                weight0 = cal_v1_weight(seq[begin:end])  # init weight for DFS
+                DFS(seq[begin:end], weight0)
+
+    def DFS(seq, begin_weight=1000000):
+        print(seq, begin_weight)
+        weight0 = begin_weight
+        best_path = []
+        stack = deque()
+        stack.append([[seq[0]], 0])
+        while stack:  # is not blank
+            # print(stack)
+            # input()
+            t = stack.popleft()
+            # print(t)
+            path, weight = t[0], t[1]
+            if weight >= weight0:
+                continue
+            if len(path) == len(seq):  # come to end
+                print(weight0, weight)
+                weight0 = weight
+                best_path = path
+            for i in seq:  # seq of random sequence
+                if i not in path:
+                    stack.appendleft((path+[i],
+                                     weight + distance_v1(path[-1], i)))
+        print(begin_weight, weight0)
+        return best_path
+
+    def MC_DFS(seq, begin_weight=1000000):
+        print(seq, begin_weight)
+        weight0 = begin_weight
+        best_path = []
+        stack = deque()
+        stack.append([[seq[0]], 0])  # MC for first layer sequence
+        t = stack.popleft()
+        path, weight = t[0], t[1]
+        if weight >= weight0:
+            continue
+        if len(path) == len(seq):  # come to end
+            print(weight0, weight)
+            weight0 = weight
+            best_path = path
+        num_coins = 500
+        seq = MC_path(seq, num_coins)
+        for i in seq:
+            if i not in path:
+                stack.appendleft((path+[i],
+                                    weight + distance_v1(path[-1], i)))
+        while stack:
+            t = stack.pop()
+            path, weight = t[0], t[1]
+            if weight >= weight0:
+                continue
+            if len(path) == len(seq):  # come to end
+                print(weight0, weight)
+                weight0 = weight
+                best_path = path
+            for i in seq:
+                if i not in path:
+                    stack.append((path+[i],
+                                  weight + distance_v1(path[-1], i)))
+        print(begin_weight, weight0)
+        return best_path
+
+    def MC_path(seq, num_coins):
+        """MC方法排序DFS, 启发式决定DFS栈中元素的先后顺序."""
+        paths_for_MC = []  # path 列表, 注意控制总量
+        weight_paths = []  # weight 列表
+        for node1 in seq:
+            if distance_v1(s, node1) <= 100000:
+                paths_for_MC.append([s,node1])
+                weight_paths.append(0)  # 初始化, 加入s附近的路径
+        # print('len of MC ', len(paths_for_MC))
+        coin_path = num_coins / len(paths_for_MC)  # 每个路径的MC次数
+        for path in paths_for_MC:
+            for i in range(int(coin_path)):
+                try_path = generate_seq(list(set(v1)-set([node1])))
+                weight = cal_v1_weight(path + try_path + [t])  # 加入pseudo-weight计算
+                # should add cycle weight in later version
+                # print(path+try_path +[t])
+                # print(weight)
+                weight_paths[paths_for_MC.index(path)] += weight / int(coin_path)
+        for i in range(len(paths_for_MC)):
+            print(paths_for_MC[i], weight_paths[i])
+        sorted_paths = []
+        sorted_index = sorted(weight_paths)
+        for i in range(len(paths_for_MC)):
+            sorted_paths.append(paths_for_MC[weight_paths.index(sorted_index[i])])
+        # print(sorted_paths)
+        return sorted_paths
+
+    MC_path(v1, 5000)
+    input()
+
+
     while True:
         i += 1
         seq_v1 = solution.tour
         j = seq_v1.index(s)
         seq_v1 = seq_v1[j:] + seq_v1[:j]
         print('seq of v1:', seq_v1)
-        path, seq , weight = conten_path(seq_v1[1:-1])
+        path, seq, weight = conten_path(seq_v1[1:-1])
         print(path, 'weight', weight)
 
         if path:
@@ -612,7 +732,9 @@ def trevize(G, s, t, v1, verbose, first_pairs=[]):
             else:
                 print('not valid')
                 print(path)
-                print(len(path)- len(set(path)))
+                print(seq)
+                print('gaps:', len(path)-len(set(path)))
+                local_DFS(seq)
                 input()
 
 
