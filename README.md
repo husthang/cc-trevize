@@ -8,6 +8,14 @@ Author: [Organization Laboratory](https://bitbucket.org/organization-lab/)
 
 License: MIT
 
+## Repository structure
+
+- `submission/`: main algorithm 主算法
+- `trevize`: python algorithm prototype 测试算法(Python)
+- `gaia/`: test framework 判卷和批量测试框架
+- `hubble/`: facilities 辅助脚本
+- `wiki/`: 一些比赛相关资源
+
 ## Main algorithm
 
 V'-zip algorithm then a depth-first search with balanced time control.
